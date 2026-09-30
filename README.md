@@ -27,8 +27,8 @@ npm run dev      # abre http://localhost:8080; recompila al guardar (recarga la 
 `index.html?build=original` carga el juego original sin modificar (`reference/vex7.min.js`), útil para
 comparar comportamientos.
 
-Para probar en local el test `npm test`, instala antes el navegador con `npx playwright install chromium`, o
-indica uno existente con `CHROMIUM_PATH=/ruta/a/chrome`.
+Para ejecutar `npm test` en tu equipo, instala antes el navegador con `npx playwright-core install chromium`,
+o indica uno ya instalado con `CHROMIUM_PATH=/ruta/a/chrome`.
 
 ## Estructura
 

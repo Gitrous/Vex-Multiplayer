@@ -16,6 +16,9 @@ npm run test:original  # same test against reference/vex7.min.js
 npm run format         # prettier (printWidth 120) over src/game and tools
 ```
 
+In Claude Code on the web, `.claude/hooks/session-start.sh` runs `npm install` and `npm run build` when a
+session starts.
+
 `npm run split` regenerates `src/game` and `src/vendor` from `reference/vex7.min.js` and
 **discards every edit made there**. It was a one-off recovery step; don't run it on purpose.
 
