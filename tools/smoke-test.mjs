@@ -52,7 +52,11 @@ const page = await browser.newPage({ viewport: { width: 1280, height: 720 } });
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.stack || e.message));
 // Keep the test offline: the only remote requests are ads/analytics.
-await page.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => route.abort());
+const external = new Set();
+await page.route(/^https?:\/\/(?!127\.0\.0\.1)/, (route) => {
+  external.add(new URL(route.request().url()).host);
+  return route.abort();
+});
 
 // Capture the Phaser.Game instance without touching game code: every copy of Phaser
 // is published through `window.Phaser = ...`, so hook Game#boot as it is assigned.
@@ -157,5 +161,6 @@ try {
   await browser.close();
   server.close();
 }
+console.log(`external requests (blocked): ${external.size ? [...external].join(", ") : "none"}`);
 console.log(failed ? `smoke test FAILED (${tag})` : `smoke test passed (${tag}); screenshots in test-results/`);
 process.exit(failed ? 1 : 0);

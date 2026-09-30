@@ -33,26 +33,11 @@
 
 gdsdk= function() {
   // ***** UTILS *****
+  // The rehosting site used this to fetch and run its own ad scripts from
+  // www.ubg235.com on every ad break. Nothing is loaded now: every "ad" completes
+  // immediately (rewarded ads count as watched).
   function loadJS(FILE_URL, callback) {
-    let scriptEle = document.createElement("script");
-  
-    scriptEle.setAttribute("src", FILE_URL);
-    scriptEle.setAttribute("type", "text/javascript");
-    scriptEle.setAttribute("async", true);
-  
-    document.body.appendChild(scriptEle);
-    
-    // Success
-    scriptEle.addEventListener("load", () => {
-      console.log("--fx--gdsdk--loadJS Done--");
-      callback(true);
-    });
-    
-     // Error
-    scriptEle.addEventListener("error", () => {
-      console.log("--fx--gdsdk--loadJS Error--");
-      callback(false);
-    });
+    setTimeout(() => callback(true), 0);
   }
 
   // ***** INIT *****
@@ -221,8 +206,6 @@ xwindow = new Proxy(window, {
   }
 });
 
+// Called by the patched h5branding logo; used to open the rehosting site's ad page.
 op3n= function() {
-  console.trace("--fx--op3n--", arguments);
-  window.open("https://ads.games235.com/");
-  // alert("--fx--xopen--");
 }
