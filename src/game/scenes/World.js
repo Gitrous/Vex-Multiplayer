@@ -431,6 +431,9 @@ World.prototype.update = function () {
   }
   if (this.state === GameStates.Playing) {
     this.updateLogic();
+    if (this.multiplayer) {
+      this.multiplayer.afterLogic();
+    }
     if (!this.multiplayer || !this.multiplayer.spectator.active) {
       this.cameraLogic();
     }

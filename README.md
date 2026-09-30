@@ -44,7 +44,10 @@ Para jugar fuera de tu red local, el servidor tiene que estar en una máquina ac
 Node.js (por ejemplo un VPS o un servicio como Render o Fly.io). GitHub Pages no sirve, porque solo aloja
 archivos estáticos. `?mp=0` juega sin conexión.
 
-De momento no hay interacción física: no chocáis ni compartís objetos ni muertes.
+**Colisiones:** marca la casilla **«Colisiones (empujar)»** en el panel de la sala (vale para toda la
+sala, cualquiera puede activarla o desactivarla). Con ella activada no podéis atravesaros: si corres contra
+otro jugador te frenas y lo empujas. En la salida de una carrera se ignoran durante 1,5 s para que no salgáis
+todos disparados. No compartís objetos ni muertes, y todavía no se puede subir encima de otro.
 
 ## Comandos
 
@@ -55,6 +58,7 @@ De momento no hay interacción física: no chocáis ni compartís objetos ni mue
 | `npm run build:release` | Lo mismo, pero minificado |
 | `npm test` | Arranca el juego en Chromium sin ventana: menú, hub, caminar y saltar; falla si hay errores |
 | `npm run test:mp` | 4 jugadores: menú, hub, carrera, modo espectador y resultados; un quinto rechazado (unos 10 minutos) |
+| `npm run test:collisions` | 2 jugadores: atravesarse, activar colisiones, chocar y empujar (unos 2 minutos) |
 | `npm run test:server` | Tests unitarios de la lógica de la sala (instantáneos) |
 | `npm run test:original` | El mismo test con el bundle original, para comparar |
 | `npm run format` | Formatea el código con Prettier |

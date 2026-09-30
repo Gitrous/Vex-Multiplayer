@@ -10,6 +10,8 @@
 //   { t: "atStart" }                  spawned in the race's act, frozen and waiting
 //   { t: "finish", ms, deaths }       reached the finish portal, ms after the race's start
 //   { t: "quitRace" }                 left the act before finishing
+//   { t: "settings", collisions }     change the room's settings (any player)
+//   { t: "push", to, x, y }           ran into player `to` with collisions on: push them by x, y
 // server -> client
 //   { t: "welcome", id, slot, name, room, max, players: [PlayerInfo] }
 //   { t: "full", max }                room already has MAX_PLAYERS; the socket is then closed
@@ -17,7 +19,8 @@
 //   { t: "left", id }
 //   { t: "renamed", id, name }
 //   { t: "s", id, ...PlayerSnapshot } another player's state, relayed as-is
-//   { t: "room", phase, players: [{ id, ready, loc }], race }   lobby/race status, after every change
+//   { t: "room", phase, settings, players: [{ id, ready, loc }], race }   status, after every change
+//   { t: "pushed", from, x, y }       another player ran into yours: apply this force
 //   { t: "go" }                       leave the main menu for the hub now
 //   { t: "loadAct", act, hard }       enter this act (the race's act, whatever was asked)
 //   { t: "raceBusy" }                 a race is already under way; wait in the hub

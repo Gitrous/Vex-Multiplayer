@@ -17,6 +17,7 @@ var Overlay_1 = require("./Overlay");
 var RoomFlow_1 = require("./RoomFlow");
 var MenuLayout = require("./MenuLayout");
 var Spectator_1 = require("./Spectator");
+var Collisions_1 = require("./Collisions");
 var system_1 = require("../system");
 
 var NAME_KEY = "vexmp_name";
@@ -80,6 +81,8 @@ class Multiplayer {
 
     this.overlay = new Overlay_1.Overlay(config.room, { rename: (name) => this.rename(name) });
     this.spectator = new Spectator_1.Spectator(this);
+    this.collisions = new Collisions_1.Collisions(this);
+    this.overlay.onCollisions = (on) => this.connection.send({ t: "settings", collisions: on });
     this.connection = new Connection_1.Connection(config.server, {
       hello: () => ({ t: "hello", room: config.room, name: config.name }),
       onStatus: (status) => {
@@ -126,6 +129,8 @@ class Multiplayer {
     } else if (msg.t === "s") {
       var remote = this.remotes.get(msg.id);
       if (remote) remote.push(msg);
+    } else if (msg.t === "pushed") {
+      this.collisions.onPushed(msg);
     } else if (msg.t === "full") {
       this.overlay.setStatus("full");
     } else {
@@ -209,6 +214,11 @@ class Multiplayer {
     if (now - this.lastOverlayAt > 500) this.renderOverlay();
   }
 
+  // Called from World.update right after the game logic moved the local player.
+  afterLogic() {
+    this.collisions.resolve(performance.now());
+  }
+
   renderOverlay() {
     this.lastOverlayAt = performance.now();
     var list = [];
@@ -224,6 +234,7 @@ class Multiplayer {
       list.push({ slot: r.slot, name: r.name, level: r.level, status: this.flow.statusOf(r.id) });
     list.sort((a, b) => a.slot - b.slot);
     this.overlay.render(list);
+    this.overlay.setCollisions(this.collisions.enabled, !!this.flow.room);
   }
 }
 

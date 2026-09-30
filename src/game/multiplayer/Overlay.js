@@ -22,6 +22,8 @@ var CSS =
   "#vexmp button{font:inherit;color:#fff;background:rgba(255,255,255,.15);border:0;border-radius:5px;padding:2px 7px;cursor:pointer}" +
   "#vexmp button:hover{background:rgba(255,255,255,.28)}#vexmp .status{opacity:.8;font-size:12px;margin-top:4px}" +
   "#vexmp.min .body{display:none}" +
+  "#vexmp .opt{cursor:pointer;margin-top:6px}#vexmp .opt input{margin:0;cursor:pointer}" +
+  "#vexmp .opt input:disabled{cursor:default}" +
   "#vexmp-banner{position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:1000;max-width:80vw;" +
   "font:600 18px/1.4 system-ui,sans-serif;color:#fff;background:rgba(10,20,40,.8);border-radius:10px;" +
   "padding:10px 18px;text-align:center;pointer-events:none;display:none}" +
@@ -69,6 +71,8 @@ class Overlay {
       '<button class="copy" title="Copiar enlace para invitar">Invitar</button>' +
       '<button class="toggle" title="Ocultar/mostrar">–</button></div>' +
       '<div class="body"><div class="players"></div>' +
+      '<label class="row opt" title="Chocar con los demás jugadores y empujarlos (para toda la sala)">' +
+      '<input type="checkbox" class="coll"> Colisiones (empujar)</label>' +
       '<div class="row"><button class="rename">Cambiar nombre</button>' +
       '<button class="join" title="Entrar en la sala de un amigo">Unirse con código</button></div>' +
       '<div class="status"></div></div>';
@@ -79,6 +83,9 @@ class Overlay {
       if (name) this.callbacks.rename(name);
     };
     this.el.querySelector(".join").onclick = () => this.joinByCode();
+    this.onCollisions = null; // (on) => void, set by Multiplayer
+    this.collBox = this.el.querySelector(".coll");
+    this.collBox.onchange = () => this.onCollisions && this.onCollisions(this.collBox.checked);
     this.el.querySelector(".toggle").onclick = () => this.el.classList.toggle("min");
     document.body.appendChild(this.el);
     this.banner = document.createElement("div");
@@ -138,6 +145,12 @@ class Overlay {
     if (color !== undefined) dot.style.background = hex(color);
     this.spec.querySelector(".prev").style.visibility = canSwitch ? "visible" : "hidden";
     this.spec.querySelector(".next").style.visibility = canSwitch ? "visible" : "hidden";
+  }
+
+  // The room's collisions setting; the checkbox works once connected to a room.
+  setCollisions(on, connected) {
+    if (this.collBox.checked !== on) this.collBox.checked = on;
+    this.collBox.disabled = !connected;
   }
 
   // players: [{ slot, name, level, status, self }]

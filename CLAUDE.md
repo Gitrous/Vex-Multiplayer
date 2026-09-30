@@ -3,7 +3,8 @@
 Vex 7 (HTML5, Phaser 3.55.2, originally TypeScript, published by Azerion) recovered from its
 shipped single-file build into an editable source tree. The goal of the project is to add
 multiplayer for up to 4 players per room. Players in a room see each other live, start from the main
-menu together and race through acts (no physical interaction between them yet). See "Multiplayer" below.
+menu together and race through acts, and can turn on collisions to block and push each other. See
+"Multiplayer" below.
 
 ## Commands
 
@@ -15,6 +16,7 @@ npm run build          # dist/vex7.js + source map (readable)
 npm run build:release  # dist/vex7.js minified
 npm test               # headless smoke test of dist/vex7.js (build first)
 npm run test:mp        # 4 headless players: lobby, hub, race, spectating, results; a 5th rejected (~10 min)
+npm run test:collisions # 2 headless players: pass through, tick "Colisiones", block and push (~2 min)
 npm run test:server    # unit tests of the room flow (server/room.mjs), instant
 npm run test:original  # same test against reference/vex7.min.js
 npm run format         # prettier (printWidth 120) over src/game and tools
@@ -30,7 +32,7 @@ After changing anything under `src/`, run `npm run build && npm test`. The test 
 Chromium, waits for the main menu, enters the hub, walks and jumps, fails on any uncaught page
 error, reports external requests, and saves screenshots to `test-results/`. Headless WebGL is
 software-rendered and slow, so a run takes about a minute. After changing `src/game/multiplayer/` or
-`server/`, also run `npm run test:server` and `npm run test:mp`.
+`server/`, also run `npm run test:server`, `npm run test:collisions` and `npm run test:mp`.
 
 ## Layout
 
@@ -125,8 +127,8 @@ Achievements, daily tasks, skins and sound are also in `system/`.
 
 Every client runs the whole game and is the authority for its own player; the server relays state and
 coordinates the room's flow. This keeps the single-player code almost untouched and makes the
-frame-rate-dependent physics a non-issue, at the cost of no shared world: players don't collide or share
-objects.
+frame-rate-dependent physics a non-issue, at the cost of no shared world: players don't share objects, and
+collisions (optional) are resolved by each client for its own player.
 
 - **Server** (`server/server.mjs`, `server/room.mjs`): rooms by code, created on first join, removed when
   empty, at most `MAX_PLAYERS` (4). A client sends `hello {room, name}` and gets `welcome {id, slot, players}`
@@ -151,6 +153,14 @@ objects.
     players visible in the level. Places are ranked by time. The race ends only when every participant has finished or quit: leaving
     the act is `quitRace` (DNF), and a disconnect counts too. Then `raceOver` shows the results for 5 s,
     and the game's level-complete panel opens.
+  - **Collisions.** A room setting, off by default. Any player can toggle it with the "Colisiones (empujar)"
+    checkbox in the room panel, which sends `settings {collisions}`. With it on, `Collisions.resolve` runs
+    right after the game logic, from `World.update` through `multiplayer.afterLogic()`. When the local player
+    moves into a ghost's box (±8 × 33 around the feet), it is stopped at the ghost's side and sends
+    `push {to, x, y}`, at most every 250 ms per target. The server relays it as `pushed`, and that player's
+    client applies `Player.applyForce(x, y)`: the pulse blocks' shove, plus a small hop. Collisions are
+    off for 1.5 s after a race's GO, while everybody is still stacked on the spawn point. Contact happens
+    with the ghost, which is 120 ms behind.
   - **Busy and solo.** While a race runs, others entering acts get `raceBusy`. Alone in a room, acts work as
     in the original game.
 - **Client** (`src/game/multiplayer/`):
@@ -162,6 +172,7 @@ objects.
   - **`RemotePlayer`.** A second `"player"` spine skeleton in `world.layerPlayer`, with a coloured name
     label. It is interpolated 120 ms in the past and visible only in the same level. Not in the tower, whose
     patterns are random per client.
+  - **`Collisions`.** See Room flow above.
   - **`Spectator`.** Drives `world.cameraX/Y` (setters that move the camera group), easing toward the
     followed ghost. `World.update` skips `cameraLogic` while it is active.
   - **`MenuLayout`.** Maps menu positions between screen sizes: nearest menu block, fraction of its width,
@@ -176,8 +187,8 @@ objects.
   `localStorage["vexmp_name"]`. When the page isn't served over http(s), multiplayer is off.
   In multiplayer, the **T** debug shortcut is disabled.
 - **Debugging:** `window.__vexMultiplayer` (`.self`, `.remotes`, `.flow.room`, `.flow.race`, `.spectator`,
-  `.overlay`).
-- **Not done yet:** interaction between players (collisions, pushing, shared deaths), a shared tower, a room browser, and a fixed simulation timestep. The host also
+  `.collisions`, `.overlay`).
+- **Not done yet:** standing on each other's heads, shared deaths or objects, a shared tower, a room browser, and a fixed simulation timestep. The host also
   needs Node: static hosting such as GitHub Pages can't run the server.
 
 ## Gotchas

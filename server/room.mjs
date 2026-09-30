@@ -1,5 +1,8 @@
 // One room's game flow. The server only coordinates; each client plays its own game.
 //
+// Settings: collisions (off by default) lets players block and push each other; the
+// pushes are relayed from the pusher's client to the pushed player's client.
+//
 //   lobby    everybody starts in the main menu. Pressing PLAY marks a player ready; when every
 //            player in the room is ready, all of them are sent to the hub at once ("go").
 //   playing  players are in the hub or in acts. Late joiners and players who return to the
@@ -19,12 +22,16 @@ import protocol from "../src/game/multiplayer/protocol.js";
 
 const { MAX_PLAYERS, COUNTDOWN_MS, sanitizeName } = protocol;
 const LOCS = new Set(["menu", "hub", "act", "other"]);
+const PUSH_INTERVAL_MS = 80;
+const MAX_PUSH = 12;
+const clamp = (v, max) => Math.max(-max, Math.min(max, v));
 
 export class Room {
   constructor(code, { send, log = () => {}, setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
     this.code = code;
     this.players = new Map(); // id -> player
     this.phase = "lobby";
+    this.settings = { collisions: false }; // changed by any player from the room panel
     this.race = null;
     this.send = send; // (player, msg)
     this.log = log;
@@ -54,6 +61,7 @@ export class Room {
     return {
       t: "room",
       phase: this.phase,
+      settings: this.settings,
       players: [...this.players.values()].map((p) => ({ id: p.id, ready: p.ready, loc: p.loc })),
       race: r && {
         act: r.act,
@@ -82,6 +90,7 @@ export class Room {
       name: sanitizeName(name) || `Jugador ${slot + 1}`,
       last: null,
       lastAt: 0,
+      lastPushAt: 0,
       ready: false,
       loc: "menu",
     };
@@ -120,6 +129,23 @@ export class Room {
 
   handle(me, msg) {
     switch (msg.t) {
+      case "settings": {
+        if (typeof msg.collisions !== "boolean" || msg.collisions === this.settings.collisions) return;
+        this.settings = { ...this.settings, collisions: msg.collisions };
+        this.log(`[${this.code}] collisions ${msg.collisions ? "on" : "off"} (${me.name})`);
+        break;
+      }
+      case "push": {
+        // Relayed to the pushed player's client, which applies it to its own player.
+        const target = this.players.get(msg.to);
+        const now = Date.now();
+        if (!this.settings.collisions || !target || target === me || now - me.lastPushAt < PUSH_INTERVAL_MS) return;
+        me.lastPushAt = now;
+        const x = clamp(Number(msg.x) || 0, MAX_PUSH);
+        const y = clamp(Number(msg.y) || 0, MAX_PUSH);
+        this.send(target, { t: "pushed", from: me.id, x, y });
+        return;
+      }
       case "name": {
         const name = sanitizeName(msg.name);
         if (!name) return;
@@ -133,6 +159,7 @@ export class Room {
         if (me.loc === "menu" && this.phase === "playing" && this.race === null) {
           if ([...this.players.values()].every((p) => p.loc === "menu")) {
             this.phase = "lobby";
+            this.settings = { collisions: false }; // changed by any player from the room panel
             for (const p of this.players.values()) p.ready = false;
           }
         }

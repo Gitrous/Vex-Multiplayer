@@ -209,6 +209,7 @@ class RoomFlow {
       r.startedAt = now;
       w.resumeWorld();
       system_1.BalanceData.actStartTime = Date.now(); // the HUD timer counts the race
+      this.mp.collisions.startGrace(now);
       this.notice = { text: "¡YA!", big: true, until: now + 800 };
     }
     this.mp.spectator.update((id) => this.isRacing(id));

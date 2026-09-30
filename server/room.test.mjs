@@ -137,3 +137,20 @@ test("the room returns to the lobby when everybody is back in the menu", () => {
   room.handle(players[1], { t: "loc", loc: "menu" });
   assert.equal(room.phase, "lobby");
 });
+
+test("collisions setting: any player toggles it; pushes are relayed only while it is on", () => {
+  const { room, players, got } = setup(2);
+  room.handle(players[0], { t: "push", to: 2, x: 5, y: -2 });
+  assert.equal(got(players[1], "pushed").length, 0, "off by default");
+  room.handle(players[1], { t: "settings", collisions: true });
+  assert.equal(room.state().settings.collisions, true);
+  assert.equal(got(players[0], "room").at(-1).settings.collisions, true, "everybody gets the new setting");
+  room.handle(players[0], { t: "push", to: 2, x: 50, y: -2 });
+  assert.deepEqual(got(players[1], "pushed")[0], { t: "pushed", from: 1, x: 12, y: -2 }, "clamped");
+  room.handle(players[0], { t: "push", to: 2, x: 5, y: 0 });
+  assert.equal(got(players[1], "pushed").length, 1, "rate-limited");
+  room.handle(players[0], { t: "push", to: 1, x: 5, y: 0 });
+  assert.equal(got(players[0], "pushed").length, 0, "can't push yourself");
+  room.handle(players[0], { t: "settings", collisions: "yes" });
+  assert.equal(room.settings.collisions, true, "ignores bad values");
+});
