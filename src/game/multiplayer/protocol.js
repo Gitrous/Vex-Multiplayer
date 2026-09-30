@@ -4,6 +4,12 @@
 //   { t: "hello", room, name }       join (or create) a room; answered with "welcome" or "full"
 //   { t: "s", ...PlayerSnapshot }     own player state, ~15 times per second
 //   { t: "name", name }               rename
+//   { t: "loc", loc }                 where the player is: "menu" | "hub" | "act" | "other"
+//   { t: "ready" }                    pressed PLAY in the main menu
+//   { t: "enterAct", act, hard }      wants to enter an act (from the hub or a finished act)
+//   { t: "atStart" }                  spawned in the race's act, frozen and waiting
+//   { t: "finish", ms, deaths }       reached the finish portal, ms after the race's start
+//   { t: "quitRace" }                 left the act before finishing
 // server -> client
 //   { t: "welcome", id, slot, name, room, max, players: [PlayerInfo] }
 //   { t: "full", max }                room already has MAX_PLAYERS; the socket is then closed
@@ -11,6 +17,14 @@
 //   { t: "left", id }
 //   { t: "renamed", id, name }
 //   { t: "s", id, ...PlayerSnapshot } another player's state, relayed as-is
+//   { t: "room", phase, players: [{ id, ready, loc }], race }   lobby/race status, after every change
+//   { t: "go" }                       leave the main menu for the hub now
+//   { t: "loadAct", act, hard }       enter this act (the race's act, whatever was asked)
+//   { t: "raceBusy" }                 a race is already under way; wait in the hub
+//   { t: "countdown", ms }            everybody is at the start: the race starts in ms
+//   { t: "raceOver", act, hard, results: [{ id, name, slot, ms, deaths, place } | { id, ..., dnf }] }
+//
+// server/room.mjs has the room's game flow.
 //
 // PlayerSnapshot (numbers are rounded by the sender):
 //   l   level key (World.currLevelID, plus ":h" in hard mode), or "" when not in a level
@@ -19,6 +33,8 @@
 //   sx sy ox oy      spine scale (sx < 0 when facing left) and offset inside the container
 //   a lp p ts        spine animation name, loop flag, progress 0..1, time scale
 //   k                skin number
+//   mb mf my         main menu only, where x/y don't match between screen sizes: index of the
+//                    nearest menu block, x as a fraction of its width, y relative to its top
 "use strict";
 
 var MAX_PLAYERS = 4;
@@ -26,13 +42,35 @@ var MAX_PLAYERS = 4;
 exports.MAX_PLAYERS = MAX_PLAYERS;
 exports.PATH = "/mp";
 exports.SEND_RATE_HZ = 15;
+exports.COUNTDOWN_MS = 3000;
 exports.MAX_MESSAGE_BYTES = 2048;
 exports.CLOSE_ROOM_FULL = 4000;
 
 // One colour per slot (0..MAX_PLAYERS-1): red, blue, green, yellow.
 exports.PLAYER_COLORS = [0xff4d4d, 0x3d9bff, 0x2fd67b, 0xffc233];
 
-exports.SNAPSHOT_KEYS = ["l", "v", "x", "y", "r", "cx", "cy", "al", "sx", "sy", "ox", "oy", "a", "lp", "p", "ts", "k"];
+exports.SNAPSHOT_KEYS = [
+  "l",
+  "v",
+  "x",
+  "y",
+  "r",
+  "cx",
+  "cy",
+  "al",
+  "sx",
+  "sy",
+  "ox",
+  "oy",
+  "a",
+  "lp",
+  "p",
+  "ts",
+  "k",
+  "mb",
+  "mf",
+  "my",
+];
 
 exports.sanitizeRoom = function (room) {
   return String(room || "")

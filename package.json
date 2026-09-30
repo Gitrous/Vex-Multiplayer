@@ -11,6 +11,7 @@
     "watch": "node tools/build.mjs --watch",
     "test": "node tools/smoke-test.mjs",
     "test:mp": "node tools/multiplayer-test.mjs",
+    "test:server": "node --test server/room.test.mjs",
     "test:original": "node tools/smoke-test.mjs --original",
     "format": "prettier --write \"src/game/**/*.js\" \"tools/**/*.mjs\" \"server/**/*.mjs\"",
     "split": "node tools/split-bundle.mjs reference/vex7.min.js src"

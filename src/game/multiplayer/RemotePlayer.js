@@ -71,7 +71,8 @@ class RemotePlayer {
     if (this.snapshots.length > MAX_BUFFER) this.snapshots.shift();
   }
 
-  update(now, localLevel) {
+  // mapPosition(snapshot) -> {x, y} on this screen, or null if it can't be placed.
+  update(now, localLevel, mapPosition) {
     var renderAt = now - INTERP_DELAY_MS;
     var buf = this.snapshots;
     if (!buf.length) return;
@@ -82,17 +83,19 @@ class RemotePlayer {
     this.applyDiscrete(a.s);
 
     var s = a.s;
-    var x = s.x;
-    var y = s.y;
+    var pa = mapPosition(s);
+    var pb = b && mapPosition(b.s);
+    var x = pa ? pa.x : 0;
+    var y = pa ? pa.y : 0;
     var r = s.r;
-    if (b && b.at > a.at && renderAt > a.at) {
+    if (pa && pb && b.at > a.at && renderAt > a.at) {
       var t = Math.min(1, (renderAt - a.at) / (b.at - a.at));
-      x = lerp(s.x, b.s.x, t);
-      y = lerp(s.y, b.s.y, t);
+      x = lerp(pa.x, pb.x, t);
+      y = lerp(pa.y, pb.y, t);
       r = lerpAngle(s.r, b.s.r, t);
     }
 
-    var visible = s.v === 1 && !!s.l && s.l === localLevel;
+    var visible = !!pa && s.v === 1 && !!s.l && s.l === localLevel;
     this.container.visible = visible;
     this.label.visible = visible;
     if (!visible) return;

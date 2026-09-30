@@ -2,8 +2,8 @@
 
 Vex 7 (HTML5, Phaser 3.55.2, originally TypeScript, published by Azerion) recovered from its
 shipped single-file build into an editable source tree. The goal of the project is to add
-multiplayer for up to 4 players per room. The first milestone is in: players in the same room see each
-other's characters live (no interaction between them yet). See "Multiplayer" below.
+multiplayer for up to 4 players per room. Players in a room see each other live, start from the main
+menu together and race through acts (no physical interaction between them yet). See "Multiplayer" below.
 
 ## Commands
 
@@ -14,7 +14,8 @@ npm start              # multiplayer server only (serves dist/ as built)
 npm run build          # dist/vex7.js + source map (readable)
 npm run build:release  # dist/vex7.js minified
 npm test               # headless smoke test of dist/vex7.js (build first)
-npm run test:mp        # 4 headless players in one room + a 5th rejected (takes ~5 min)
+npm run test:mp        # 4 headless players: lobby, hub, race, results; a 5th rejected (takes ~10 min)
+npm run test:server    # unit tests of the room flow (server/room.mjs), instant
 npm run test:original  # same test against reference/vex7.min.js
 npm run format         # prettier (printWidth 120) over src/game and tools
 ```
@@ -29,7 +30,7 @@ After changing anything under `src/`, run `npm run build && npm test`. The test 
 Chromium, waits for the main menu, enters the hub, walks and jumps, fails on any uncaught page
 error, reports external requests, and saves screenshots to `test-results/`. Headless WebGL is
 software-rendered and slow, so a run takes about a minute. After changing `src/game/multiplayer/` or
-`server/`, also run `npm run test:mp`.
+`server/`, also run `npm run test:server` and `npm run test:mp`.
 
 ## Layout
 
@@ -46,6 +47,7 @@ software-rendered and slow, so a run takes about a minute. After changing `src/g
 - `reference/vex7.min.js`: the original shipped bundle, kept byte-for-byte.
 - `server/server.mjs`: the multiplayer server. It serves the static files (an allowlist: `index.html`,
   `version.js`, `assets/`, `dist/`, `patch/`, `reference/`, `src/`) and the WebSocket at `/mp`.
+  `server/room.mjs` is one room's game flow (lobby, races), unit-tested in `server/room.test.mjs`.
 - `src/game/multiplayer/`: the multiplayer client. `protocol.js` is shared with the server.
 - `tools/`: `build.mjs`, `smoke-test.mjs`, `multiplayer-test.mjs`, `split-bundle.mjs`, and `lib/harness.mjs` for the
   shared test helpers (it exposes the game as `window.__vexGame` without touching game code).
@@ -121,38 +123,65 @@ Achievements, daily tasks, skins and sound are also in `system/`.
 
 ## Multiplayer
 
-Every client runs the whole game and is the authority for its own player; the server only relays. This
-keeps the single-player code untouched and avoids the frame-rate dependent physics being a problem, at
-the cost of no shared world (yet).
+Every client runs the whole game and is the authority for its own player; the server relays state and
+coordinates the room's flow. This keeps the single-player code almost untouched and makes the
+frame-rate-dependent physics a non-issue, at the cost of no shared world: players don't collide or share
+objects.
 
-- **Server** (`server/server.mjs`): rooms by code, created on first join, removed when empty, at most
-  `MAX_PLAYERS` (4). A client sends `hello {room, name}` and gets `welcome {id, slot, players}` or `full`
-  (the socket is then closed with code 4000). The slot (0-3) picks the player's colour. Snapshots are
-  filtered to `SNAPSHOT_KEYS`, rate-limited, and relayed to the rest of the room. The server remembers each
-  player's last snapshot, so new joiners see them immediately. Dead sockets are dropped by ping/pong.
-- **Client** (`src/game/multiplayer/`): `World.create` calls `Multiplayer.attach(world, GameStates)` and
-  `World.update` calls `multiplayer.update()` every frame. That sends the local player's snapshot 15 times
-  a second: the level key, container transform, spine offset/scale (the facing direction is `sx < 0`),
-  animation name, loop, progress, time scale and skin. It also updates the `RemotePlayer`s. Each one is a
-  second `"player"` spine skeleton in `world.layerPlayer`, drawn below the local player, with a name label
-  in its colour. It is interpolated 120 ms in the past and only visible when in the same level as the
-  local player. The main menu and the tower don't count as shared levels, because their layout differs
-  per client (screen size, random patterns). `Overlay` is the HTML panel with the room, the invite link,
-  the player list with levels, rename, and the connection status. `Connection` reconnects with backoff.
+- **Server** (`server/server.mjs`, `server/room.mjs`): rooms by code, created on first join, removed when
+  empty, at most `MAX_PLAYERS` (4). A client sends `hello {room, name}` and gets `welcome {id, slot, players}`
+  or `full` (the socket is then closed with code 4000). The slot (0-3) picks the player's colour. Snapshots
+  are filtered to `SNAPSHOT_KEYS`, rate-limited and relayed to the rest of the room. The last one is kept for
+  newcomers. After every flow change the room broadcasts `room {phase, players: [{id, ready, loc}], race}`.
+  All messages are listed in `src/game/multiplayer/protocol.js`.
+- **Room flow:**
+  - **Lobby.** Everybody starts in the main menu and sees the others there. PLAY (the button, or landing on
+    the PLAY block) sends `ready`. When every player is ready, the server sends `go` and all of them enter
+    the hub together. Later, PLAY goes straight to the hub. If everybody returns to the menu, the room is a
+    lobby again.
+  - **Race gathering.** Entering an act sends `enterAct`. The first player to do so picks the race's act, and
+    everybody is sent to that act (`loadAct`), whatever they asked for. In a race the "level objectives"
+    panel is pressed automatically. The player is frozen with `World.pauseWorld` once spawned and sends
+    `atStart`.
+  - **Countdown.** When every player in the hub or an act is at the start, the server sends
+    `countdown {ms: 3000}`. Each client resumes at the same moment, and the HUD timer restarts.
+  - **Finish.** `World.finishLevel` reports `finish {ms, deaths}` (time since the start) and waits frozen.
+    Places are ranked by time. The race ends only when every participant has finished or quit: leaving
+    the act is `quitRace` (DNF), and a disconnect counts too. Then `raceOver` shows the results for 5 s,
+    and the game's level-complete panel opens.
+  - **Busy and solo.** While a race runs, others entering acts get `raceBusy`. Alone in a room, acts work as
+    in the original game.
+- **Client** (`src/game/multiplayer/`):
+  - **Hooks.** `World.create` calls `Multiplayer.attach(world, GameStates)`, and `World.update` calls
+    `multiplayer.update()` every frame. `World.showSubSceneTransition` and `World.finishLevel` first ask
+    `multiplayer.flow` (`RoomFlow`), which may take over. The flow calls the originals itself with
+    `runBypassed`.
+  - **Snapshots.** The local player's snapshot is sent 15 times a second.
+  - **`RemotePlayer`.** A second `"player"` spine skeleton in `world.layerPlayer`, with a coloured name
+    label. It is interpolated 120 ms in the past and visible only in the same level. Not in the tower, whose
+    patterns are random per client.
+  - **`MenuLayout`.** Maps menu positions between screen sizes: nearest menu block, fraction of its width,
+    and offset from its top.
+  - **`Overlay`.** The HTML panel (room, invite link, players with level/lobby/race status, rename) and the
+    banner (waiting messages, countdown, results).
+  - **`Connection`.** Reconnects with backoff. A reconnect joins as a new player: the race it was in
+    counts it as gone.
 - **URL parameters:** `?room=<code>` (one is generated and put in the URL if missing), `?name=`,
   `?server=<ws url>` (default: same host, `/mp`), `?mp=0` for offline. Names persist in
   `localStorage["vexmp_name"]`. When the page isn't served over http(s), multiplayer is off.
-- **Debugging:** `window.__vexMultiplayer` (`.self`, `.remotes`, `.connection`, `.overlay`).
-- **Not done yet:** interaction between players (collisions, pushing, racing, shared deaths), a shared
-  tower, a lobby or room browser, and a fixed simulation timestep. The host also needs Node:
-  static hosting such as GitHub Pages can't run the server.
+  In multiplayer, the **T** debug shortcut is disabled.
+- **Debugging:** `window.__vexMultiplayer` (`.self`, `.remotes`, `.flow.room`, `.flow.race`, `.overlay`).
+- **Not done yet:** interaction between players (collisions, pushing, shared deaths), spectating while
+  waiting after finishing, a shared tower, a room browser, and a fixed simulation timestep. The host also
+  needs Node: static hosting such as GitHub Pages can't run the server.
 
 ## Gotchas
 
 - `AzerionSDK.init` calls `preventDefault()` on every `keydown`/`keyup` on `window`, so browser shortcuts
   such as F5 don't work while the page has focus. HTML inputs added over the canvas won't receive text
   either, unless this is changed.
-- Pressing **T** in the world calls `finishLevel()`. It is a debug shortcut left in the shipped game.
+- Pressing **T** in the world calls `finishLevel()`. It is a debug shortcut left in the shipped game (only
+  registered when multiplayer is off).
 - `data/Constants.IS_EDITOR` and `Levels.loadLevelEdit` are leftovers of the original level editor.
 - `index.html` references `assets/icon.png` and the CSS references `rotate.png`, but neither exists in the
   original build.

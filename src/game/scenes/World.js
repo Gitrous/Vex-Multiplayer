@@ -76,8 +76,11 @@ World.prototype.create = function () {
   }
   this.game.events.on(Phaser.Core.Events.BLUR, this.onFocusLost, this);
   this.game.events.on(Phaser.Core.Events.FOCUS, this.onFocusFound, this);
-  this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.T).on("down", this.finishLevel, this);
   this.multiplayer = Multiplayer_1.Multiplayer.attach(this, GameStates);
+  if (!this.multiplayer) {
+    // Debug shortcut from the original game; it would let anybody win a race.
+    this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.T).on("down", this.finishLevel, this);
+  }
 };
 
 World.prototype.showPanelTrophies = function () {
@@ -91,6 +94,9 @@ World.prototype.showPanelDailyTask = function () {
 };
 
 World.prototype.showSubSceneTransition = function (t, e, i) {
+  if (this.multiplayer && this.multiplayer.flow.interceptTransition(t, e, i)) {
+    return;
+  }
   if (e === undefined) {
     e = -1;
   }
@@ -343,6 +349,9 @@ World.prototype.restartTowerStage = function () {
 };
 
 World.prototype.finishLevel = function () {
+  if (this.multiplayer && this.multiplayer.flow.interceptFinish()) {
+    return;
+  }
   this.pauseWorld();
   var t = Number(this.currLevelID);
   if (t > BalanceData_1.BalanceData.levelsCompleted) {

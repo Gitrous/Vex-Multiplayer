@@ -14,8 +14,9 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { WebSocketServer } from "ws";
 import protocol from "../src/game/multiplayer/protocol.js";
+import { Room } from "./room.mjs";
 
-const { MAX_PLAYERS, PATH, MAX_MESSAGE_BYTES, CLOSE_ROOM_FULL, SNAPSHOT_KEYS, sanitizeRoom, sanitizeName } = protocol;
+const { MAX_PLAYERS, PATH, MAX_MESSAGE_BYTES, CLOSE_ROOM_FULL, SNAPSHOT_KEYS, sanitizeRoom } = protocol;
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 // Only what the page needs (src/ is there for the source map).
 const PUBLIC = new Set(["index.html", "version.js", "favicon.ico", "assets", "dist", "patch", "reference", "src"]);
@@ -76,20 +77,17 @@ function cleanSnapshot(msg) {
 export function startServer({ port = 8080, host, root = ROOT, log = console.log } = {}) {
   const server = http.createServer((req, res) => serveStatic(root, req, res));
   const wss = new WebSocketServer({ server, path: PATH, maxPayload: MAX_MESSAGE_BYTES });
-  const rooms = new Map(); // code -> Map(id -> player)
+  const rooms = new Map(); // code -> Room
   let nextId = 1;
 
-  const send = (ws, msg) => {
+  const send = (player, msg) => {
+    const ws = player.ws;
     if (ws.readyState === ws.OPEN) ws.send(JSON.stringify(msg));
   };
-  const broadcast = (room, msg, except) => {
-    const data = JSON.stringify(msg);
-    for (const p of room.values()) if (p !== except && p.ws.readyState === p.ws.OPEN) p.ws.send(data);
-  };
-  const info = (p) => ({ id: p.id, slot: p.slot, name: p.name, last: p.last });
 
   wss.on("connection", (ws) => {
     let me = null;
+    let room = null;
     ws.isAlive = true;
     ws.on("pong", () => (ws.isAlive = true));
 
@@ -106,62 +104,36 @@ export function startServer({ port = 8080, host, root = ROOT, log = console.log 
       if (!me) {
         if (msg.t !== "hello") return;
         const code = sanitizeRoom(msg.room) || "lobby";
-        const room = rooms.get(code) || new Map();
-        if (room.size >= MAX_PLAYERS) {
-          send(ws, { t: "full", max: MAX_PLAYERS });
+        room = rooms.get(code) || new Room(code, { send, log });
+        if (room.full) {
+          send({ ws }, { t: "full", max: MAX_PLAYERS });
           ws.close(CLOSE_ROOM_FULL, "room full");
+          room = null;
           return;
         }
-        const used = new Set([...room.values()].map((p) => p.slot));
-        let slot = 0;
-        while (used.has(slot)) slot++;
-        me = {
-          id: nextId++,
-          slot,
-          name: sanitizeName(msg.name) || `Jugador ${slot + 1}`,
-          ws,
-          code,
-          last: null,
-          lastAt: 0,
-        };
         rooms.set(code, room);
-        send(ws, {
-          t: "welcome",
-          id: me.id,
-          slot,
-          name: me.name,
-          room: code,
-          max: MAX_PLAYERS,
-          players: [...room.values()].map(info),
-        });
-        broadcast(room, { t: "joined", ...info(me) });
-        room.set(me.id, me);
-        log(`[${code}] + ${me.name} (#${me.id}, slot ${slot}) ${room.size}/${MAX_PLAYERS}`);
+        me = room.add(nextId++, ws, msg.name);
+        log(`[${code}] + ${me.name} (#${me.id}, slot ${me.slot}) ${room.size}/${MAX_PLAYERS}`);
         return;
       }
 
-      const room = rooms.get(me.code);
       if (msg.t === "s") {
+        // Hot path: relay without touching the room's state.
         const now = Date.now();
         if (now - me.lastAt < MIN_SNAPSHOT_INTERVAL_MS) return;
         me.lastAt = now;
         me.last = cleanSnapshot(msg);
-        broadcast(room, { t: "s", id: me.id, ...me.last }, me);
-      } else if (msg.t === "name") {
-        const name = sanitizeName(msg.name);
-        if (!name) return;
-        me.name = name;
-        broadcast(room, { t: "renamed", id: me.id, name });
+        room.broadcast({ t: "s", id: me.id, ...me.last }, me);
+      } else {
+        room.handle(me, msg);
       }
     });
 
     ws.on("close", () => {
       if (!me) return;
-      const room = rooms.get(me.code);
-      room.delete(me.id);
-      if (room.size === 0) rooms.delete(me.code);
-      else broadcast(room, { t: "left", id: me.id });
-      log(`[${me.code}] - ${me.name} (#${me.id}) ${room.size}/${MAX_PLAYERS}`);
+      room.remove(me);
+      if (room.size === 0) rooms.delete(room.code);
+      log(`[${room.code}] - ${me.name} (#${me.id}) ${room.size}/${MAX_PLAYERS}`);
     });
   });
 

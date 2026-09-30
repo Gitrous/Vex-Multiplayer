@@ -1,5 +1,6 @@
-// Small HTML panel over the canvas: room code, invite link, connection status and the
-// players in the room with their colour and current level.
+// HTML over the canvas: a panel with the room code, invite link, connection status and
+// the players (colour, name, level or lobby/race status), plus a banner at the top centre
+// for lobby/race messages, the countdown and race results.
 "use strict";
 
 var protocol = require("./protocol");
@@ -20,7 +21,12 @@ var CSS =
   "#vexmp .name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}" +
   "#vexmp button{font:inherit;color:#fff;background:rgba(255,255,255,.15);border:0;border-radius:5px;padding:2px 7px;cursor:pointer}" +
   "#vexmp button:hover{background:rgba(255,255,255,.28)}#vexmp .status{opacity:.8;font-size:12px;margin-top:4px}" +
-  "#vexmp.min .body{display:none}";
+  "#vexmp.min .body{display:none}" +
+  "#vexmp-banner{position:fixed;left:50%;top:64px;transform:translateX(-50%);z-index:1000;max-width:80vw;" +
+  "font:600 18px/1.4 system-ui,sans-serif;color:#fff;background:rgba(10,20,40,.8);border-radius:10px;" +
+  "padding:10px 18px;text-align:center;pointer-events:none;display:none}" +
+  "#vexmp-banner.big{font-size:96px;line-height:1.1;padding:6px 40px;top:35%}" +
+  "#vexmp-banner ol{margin:6px 0 0;padding:0;list-style:none;font-weight:500;text-align:left}";
 
 function hex(color) {
   return "#" + ("000000" + color.toString(16)).slice(-6);
@@ -67,6 +73,10 @@ class Overlay {
     };
     this.el.querySelector(".toggle").onclick = () => this.el.classList.toggle("min");
     document.body.appendChild(this.el);
+    this.banner = document.createElement("div");
+    this.banner.id = "vexmp-banner";
+    document.body.appendChild(this.banner);
+    this.bannerKey = null;
     this.playersEl = this.el.querySelector(".players");
     this.statusEl = this.el.querySelector(".status");
     this.setStatus("connecting");
@@ -78,7 +88,26 @@ class Overlay {
     this.statusEl.style.display = status === "online" ? "none" : "";
   }
 
-  // players: [{ slot, name, level, self }]
+  // title: text or null to hide; lines: optional list under it; big: countdown style.
+  setBanner(title, lines, big) {
+    var key = title === null ? null : JSON.stringify([title, lines, !!big]);
+    if (key === this.bannerKey) return;
+    this.bannerKey = key;
+    this.banner.style.display = title === null ? "none" : "block";
+    this.banner.classList.toggle("big", !!big);
+    this.banner.textContent = title || "";
+    if (lines && lines.length) {
+      var ol = document.createElement("ol");
+      for (var line of lines) {
+        var li = document.createElement("li");
+        li.textContent = line;
+        ol.appendChild(li);
+      }
+      this.banner.appendChild(ol);
+    }
+  }
+
+  // players: [{ slot, name, level, status, self }]
   render(players) {
     var html = "";
     for (var p of players) {
@@ -94,7 +123,7 @@ class Overlay {
         protocol.PLAYER_COLORS[p.slot % protocol.PLAYER_COLORS.length],
       );
       rows[i].querySelector(".name").textContent = p.name + (p.self ? " (tú)" : "");
-      rows[i].querySelector(".lvl").textContent = levelLabel(p.level);
+      rows[i].querySelector(".lvl").textContent = p.status || levelLabel(p.level);
     });
   }
 
