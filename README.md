@@ -1,6 +1,7 @@
 # Vex Multiplayer
 
-Base para una versión multijugador de **Vex 7**, el juego de plataformas HTML5 hecho con Phaser 3.
+Versión multijugador de **Vex 7**, el juego de plataformas HTML5 hecho con Phaser 3. Hasta **4 jugadores**
+por sala se ven moverse en tiempo real en el mismo nivel.
 
 El juego se publicó como un único archivo minificado de 3 MB. En este repositorio está recuperado como
 código fuente editable: 252 módulos en `src/game/`, organizados por carpetas (escenas, jugador, bloques,
@@ -16,11 +17,32 @@ npm install
 npm run dev      # abre http://localhost:8080; recompila al guardar (recarga la página para ver los cambios)
 ```
 
+## Jugar con amigos
+
+1. Arranca el servidor: `npm run build && npm start` (o `npm run dev` mientras desarrollas). Muestra las
+   direcciones en las que escucha, incluidas las de tu red local.
+2. Abre el juego. En la esquina inferior izquierda aparece el panel **Sala**: pulsa **Invitar** para copiar
+   el enlace y compártelo. Hasta 4 jugadores por sala; el quinto verá «Sala llena».
+3. Cada jugador tiene un color y su nombre encima del personaje (**Cambiar nombre** en el panel, o
+   `?name=Ana` en la URL). Os veis cuando estáis en el mismo nivel (hub, actos o Vex; en el menú y en la
+   torre no, porque su disposición cambia en cada pantalla).
+
+Para jugar fuera de tu red local, el servidor tiene que estar en una máquina accesible desde Internet con
+Node.js (por ejemplo un VPS o un servicio como Render o Fly.io). GitHub Pages no sirve, porque solo aloja
+archivos estáticos. `?mp=0` juega sin conexión.
+
+De momento los jugadores no interactúan entre sí: no chocan ni comparten objetos ni muertes. Cada uno
+juega su partida y ve a los demás.
+
+## Comandos
+
 | Comando | Qué hace |
 | --- | --- |
+| `npm start` | Servidor multijugador (sirve el juego ya compilado) |
 | `npm run build` | Genera `dist/vex7.js`, con source map que apunta a `src/` |
 | `npm run build:release` | Lo mismo, pero minificado |
 | `npm test` | Arranca el juego en Chromium sin ventana: menú, hub, caminar y saltar; falla si hay errores |
+| `npm run test:mp` | 4 jugadores en la misma sala y un quinto rechazado (tarda unos 5 minutos) |
 | `npm run test:original` | El mismo test con el bundle original, para comparar |
 | `npm run format` | Formatea el código con Prettier |
 
@@ -33,7 +55,9 @@ o indica uno ya instalado con `CHROMIUM_PATH=/ruta/a/chrome`.
 ## Estructura
 
 ```
+server/            servidor multijugador (archivos estáticos + WebSocket en /mp)
 src/game/          código del juego (un archivo por módulo, CommonJS)
+  multiplayer/     cliente multijugador: conexión, jugadores remotos, panel de sala
   main.js          clase Game (Phaser.Game)
   scenes/          Boot y World (World → WorldCreator → WorldLayers → BasicScene)
   entities/        Player, PlayerBase, Entity...

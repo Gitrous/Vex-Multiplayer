@@ -47,7 +47,8 @@ var GameStates,
   SubSceneList_1 = require("../subscenes/SubSceneList"),
   obstacles_1 = require("../objects/obstacles"),
   Helpers_1 = require("../utils/Helpers"),
-  AzerionSDK_1 = require("../sdk/AzerionSDK");
+  AzerionSDK_1 = require("../sdk/AzerionSDK"),
+  Multiplayer_1 = require("../multiplayer/Multiplayer");
 
 (_tmp = GameStates = exports.GameStates || (exports.GameStates = {}))[(_tmp.Loading = 0)] = "Loading";
 
@@ -76,6 +77,7 @@ World.prototype.create = function () {
   this.game.events.on(Phaser.Core.Events.BLUR, this.onFocusLost, this);
   this.game.events.on(Phaser.Core.Events.FOCUS, this.onFocusFound, this);
   this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.T).on("down", this.finishLevel, this);
+  this.multiplayer = Multiplayer_1.Multiplayer.attach(this, GameStates);
 };
 
 World.prototype.showPanelTrophies = function () {
@@ -415,6 +417,9 @@ World.prototype.collectCoin = function () {
 };
 
 World.prototype.update = function () {
+  if (this.multiplayer) {
+    this.multiplayer.update();
+  }
   if (this.state === GameStates.Playing) {
     this.updateLogic();
     this.cameraLogic();

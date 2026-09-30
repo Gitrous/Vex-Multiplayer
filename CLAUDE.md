@@ -2,16 +2,19 @@
 
 Vex 7 (HTML5, Phaser 3.55.2, originally TypeScript, published by Azerion) recovered from its
 shipped single-file build into an editable source tree. The goal of the project is to add
-multiplayer. There is no server code yet.
+multiplayer for up to 4 players per room. The first milestone is in: players in the same room see each
+other's characters live (no interaction between them yet). See "Multiplayer" below.
 
 ## Commands
 
 ```bash
-npm install            # tooling only: esbuild, babel, prettier, playwright-core
-npm run dev            # build + watch + serve the repo at http://localhost:8080 (PORT=... to change)
+npm install            # ws (server) + tooling: esbuild, babel, prettier, playwright-core
+npm run dev            # build + watch + multiplayer server at http://localhost:8080 (PORT=... to change)
+npm start              # multiplayer server only (serves dist/ as built)
 npm run build          # dist/vex7.js + source map (readable)
 npm run build:release  # dist/vex7.js minified
 npm test               # headless smoke test of dist/vex7.js (build first)
+npm run test:mp        # 4 headless players in one room + a 5th rejected (takes ~5 min)
 npm run test:original  # same test against reference/vex7.min.js
 npm run format         # prettier (printWidth 120) over src/game and tools
 ```
@@ -25,7 +28,8 @@ session starts.
 After changing anything under `src/`, run `npm run build && npm test`. The test boots the game in
 Chromium, waits for the main menu, enters the hub, walks and jumps, fails on any uncaught page
 error, reports external requests, and saves screenshots to `test-results/`. Headless WebGL is
-software-rendered and slow, so a run takes about a minute.
+software-rendered and slow, so a run takes about a minute. After changing `src/game/multiplayer/` or
+`server/`, also run `npm run test:mp`.
 
 ## Layout
 
@@ -40,7 +44,11 @@ software-rendered and slow, so a run takes about a minute.
   `.mp3`/`.m4a`), and JSON data. `assets/jsons/levels.json` holds every level.
 - `patch/js/gd-sdk.js`: local stand-in for the GameDistribution SDK. Every ad completes immediately.
 - `reference/vex7.min.js`: the original shipped bundle, kept byte-for-byte.
-- `tools/`: `build.mjs`, `smoke-test.mjs`, `split-bundle.mjs`.
+- `server/server.mjs`: the multiplayer server. It serves the static files (an allowlist: `index.html`,
+  `version.js`, `assets/`, `dist/`, `patch/`, `reference/`, `src/`) and the WebSocket at `/mp`.
+- `src/game/multiplayer/`: the multiplayer client. `protocol.js` is shared with the server.
+- `tools/`: `build.mjs`, `smoke-test.mjs`, `multiplayer-test.mjs`, `split-bundle.mjs`, and `lib/harness.mjs` for the
+  shared test helpers (it exposes the game as `window.__vexGame` without touching game code).
 
 ## Reading and writing the recovered code
 
@@ -110,6 +118,34 @@ and slopes. The tower enemies live in `objects/tower/`.
 and buttons in `ui/buttons`. The `jd/` folder holds display-object wrappers (`JDImage`, `JDText`,
 `JDSpineGameObject`, ...). Progress is saved to `localStorage["vex7_sg"]` through `system/SaveGame`.
 Achievements, daily tasks, skins and sound are also in `system/`.
+
+## Multiplayer
+
+Every client runs the whole game and is the authority for its own player; the server only relays. This
+keeps the single-player code untouched and avoids the frame-rate dependent physics being a problem, at
+the cost of no shared world (yet).
+
+- **Server** (`server/server.mjs`): rooms by code, created on first join, removed when empty, at most
+  `MAX_PLAYERS` (4). A client sends `hello {room, name}` and gets `welcome {id, slot, players}` or `full`
+  (the socket is then closed with code 4000). The slot (0-3) picks the player's colour. Snapshots are
+  filtered to `SNAPSHOT_KEYS`, rate-limited, and relayed to the rest of the room. The server remembers each
+  player's last snapshot, so new joiners see them immediately. Dead sockets are dropped by ping/pong.
+- **Client** (`src/game/multiplayer/`): `World.create` calls `Multiplayer.attach(world, GameStates)` and
+  `World.update` calls `multiplayer.update()` every frame. That sends the local player's snapshot 15 times
+  a second: the level key, container transform, spine offset/scale (the facing direction is `sx < 0`),
+  animation name, loop, progress, time scale and skin. It also updates the `RemotePlayer`s. Each one is a
+  second `"player"` spine skeleton in `world.layerPlayer`, drawn below the local player, with a name label
+  in its colour. It is interpolated 120 ms in the past and only visible when in the same level as the
+  local player. The main menu and the tower don't count as shared levels, because their layout differs
+  per client (screen size, random patterns). `Overlay` is the HTML panel with the room, the invite link,
+  the player list with levels, rename, and the connection status. `Connection` reconnects with backoff.
+- **URL parameters:** `?room=<code>` (one is generated and put in the URL if missing), `?name=`,
+  `?server=<ws url>` (default: same host, `/mp`), `?mp=0` for offline. Names persist in
+  `localStorage["vexmp_name"]`. When the page isn't served over http(s), multiplayer is off.
+- **Debugging:** `window.__vexMultiplayer` (`.self`, `.remotes`, `.connection`, `.overlay`).
+- **Not done yet:** interaction between players (collisions, pushing, racing, shared deaths), a shared
+  tower, a lobby or room browser, and a fixed simulation timestep. The host also needs Node:
+  static hosting such as GitHub Pages can't run the server.
 
 ## Gotchas
 

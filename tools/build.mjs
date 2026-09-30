@@ -6,7 +6,7 @@
 //   node tools/build.mjs            -> dist/vex7.js (readable) + dist/vex7.js.map
 //   node tools/build.mjs --release  -> dist/vex7.js (minified) + dist/vex7.js.map
 //   node tools/build.mjs --watch    -> readable build, rebuilt whenever src/ changes
-//   node tools/build.mjs --serve    -> --watch + static server for the repo on $PORT (default 8080)
+//   node tools/build.mjs --serve    -> --watch + the multiplayer server (server/server.mjs) on $PORT (default 8080)
 import fs from "node:fs";
 import path from "node:path";
 import * as esbuild from "esbuild";
@@ -49,9 +49,10 @@ if (watch || serve) {
   const ctx = await esbuild.context(options);
   await ctx.watch();
   if (serve) {
-    const port = Number(process.env.PORT) || 8080;
-    await ctx.serve({ servedir: root, port });
-    console.log(`serving http://localhost:${port}/ (rebuilds on save; reload the page to see changes)`);
+    // The multiplayer server also serves the repo's static files.
+    const { startServer, lanUrls } = await import("../server/server.mjs");
+    const port = await startServer({ port: Number(process.env.PORT) || 8080, host: process.env.HOST }).ready;
+    console.log(`serving ${lanUrls(port).join("  ")} (rebuilds on save; reload the page to see changes)`);
   } else {
     console.log("watching src/ ...");
   }
