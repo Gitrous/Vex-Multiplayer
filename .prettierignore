@@ -1,0 +1,4 @@
+src/vendor/
+src/game/lib/phaser-bundled.min.js
+reference/
+dist/

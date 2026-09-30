@@ -51,7 +51,9 @@
         var libs = [];
 
 
-        var gameName = "vex7.min.js";
+        // dist/vex7.js is built from src/ (npm run build). ?build=original loads the
+        // untouched shipped bundle instead, for side-by-side comparisons.
+        var gameName = /[?&]build=original\b/.test(location.search) ? "reference/vex7.min.js" : "dist/vex7.js";
 
 
         var enableAnalytics, azAdWrapper, _azFeedback;

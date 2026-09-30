@@ -1,0 +1,25 @@
+{
+  "name": "vex-multiplayer",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Vex 7 (HTML5, Phaser 3) recovered into an editable source tree, as the base for a multiplayer version",
+  "scripts": {
+    "dev": "node tools/build.mjs --serve",
+    "build": "node tools/build.mjs",
+    "build:release": "node tools/build.mjs --release",
+    "watch": "node tools/build.mjs --watch",
+    "test": "node tools/smoke-test.mjs",
+    "test:original": "node tools/smoke-test.mjs --original",
+    "format": "prettier --write \"src/game/**/*.js\" \"tools/**/*.mjs\"",
+    "split": "node tools/split-bundle.mjs reference/vex7.min.js src"
+  },
+  "devDependencies": {
+    "@babel/generator": "^8.0.6",
+    "@babel/parser": "^8.0.6",
+    "@babel/traverse": "^8.0.6",
+    "@babel/types": "^8.0.6",
+    "esbuild": "^0.28.2",
+    "playwright-core": "1.56.1",
+    "prettier": "^3.9.9"
+  }
+}
