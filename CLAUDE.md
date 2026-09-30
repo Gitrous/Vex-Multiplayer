@@ -14,7 +14,7 @@ npm start              # multiplayer server only (serves dist/ as built)
 npm run build          # dist/vex7.js + source map (readable)
 npm run build:release  # dist/vex7.js minified
 npm test               # headless smoke test of dist/vex7.js (build first)
-npm run test:mp        # 4 headless players: lobby, hub, race, results; a 5th rejected (takes ~10 min)
+npm run test:mp        # 4 headless players: lobby, hub, race, spectating, results; a 5th rejected (~10 min)
 npm run test:server    # unit tests of the room flow (server/room.mjs), instant
 npm run test:original  # same test against reference/vex7.min.js
 npm run format         # prettier (printWidth 120) over src/game and tools
@@ -145,8 +145,10 @@ objects.
     `atStart`.
   - **Countdown.** When every player in the hub or an act is at the start, the server sends
     `countdown {ms: 3000}`. Each client resumes at the same moment, and the HUD timer restarts.
-  - **Finish.** `World.finishLevel` reports `finish {ms, deaths}` (time since the start) and waits frozen.
-    Places are ranked by time. The race ends only when every participant has finished or quit: leaving
+  - **Finish.** `World.finishLevel` reports `finish {ms, deaths}` (time since the start) and the player
+    becomes inactive, while the world keeps running. Meanwhile the player spectates (`Spectator`): the
+    camera follows a player still racing, and ←/→ (A/D) or the arrows in the bottom bar switch between the
+    players visible in the level. Places are ranked by time. The race ends only when every participant has finished or quit: leaving
     the act is `quitRace` (DNF), and a disconnect counts too. Then `raceOver` shows the results for 5 s,
     and the game's level-complete panel opens.
   - **Busy and solo.** While a race runs, others entering acts get `raceBusy`. Alone in a room, acts work as
@@ -160,19 +162,22 @@ objects.
   - **`RemotePlayer`.** A second `"player"` spine skeleton in `world.layerPlayer`, with a coloured name
     label. It is interpolated 120 ms in the past and visible only in the same level. Not in the tower, whose
     patterns are random per client.
+  - **`Spectator`.** Drives `world.cameraX/Y` (setters that move the camera group), easing toward the
+    followed ghost. `World.update` skips `cameraLogic` while it is active.
   - **`MenuLayout`.** Maps menu positions between screen sizes: nearest menu block, fraction of its width,
     and offset from its top.
-  - **`Overlay`.** The HTML panel (room, invite link, players with level/lobby/race status, rename) and the
-    banner (waiting messages, countdown, results).
+  - **`Overlay`.** The HTML panel (room, invite link, join by code or pasted link, players with
+    level/lobby/race status, rename), the banner (waiting messages, countdown, results) and the spectator
+    bar. It uses `window.prompt` for text, because the game calls `preventDefault` on every key.
   - **`Connection`.** Reconnects with backoff. A reconnect joins as a new player: the race it was in
     counts it as gone.
 - **URL parameters:** `?room=<code>` (one is generated and put in the URL if missing), `?name=`,
   `?server=<ws url>` (default: same host, `/mp`), `?mp=0` for offline. Names persist in
   `localStorage["vexmp_name"]`. When the page isn't served over http(s), multiplayer is off.
   In multiplayer, the **T** debug shortcut is disabled.
-- **Debugging:** `window.__vexMultiplayer` (`.self`, `.remotes`, `.flow.room`, `.flow.race`, `.overlay`).
-- **Not done yet:** interaction between players (collisions, pushing, shared deaths), spectating while
-  waiting after finishing, a shared tower, a room browser, and a fixed simulation timestep. The host also
+- **Debugging:** `window.__vexMultiplayer` (`.self`, `.remotes`, `.flow.room`, `.flow.race`, `.spectator`,
+  `.overlay`).
+- **Not done yet:** interaction between players (collisions, pushing, shared deaths), a shared tower, a room browser, and a fixed simulation timestep. The host also
   needs Node: static hosting such as GitHub Pages can't run the server.
 
 ## Gotchas

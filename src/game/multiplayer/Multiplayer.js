@@ -16,6 +16,7 @@ var RemotePlayer_1 = require("./RemotePlayer");
 var Overlay_1 = require("./Overlay");
 var RoomFlow_1 = require("./RoomFlow");
 var MenuLayout = require("./MenuLayout");
+var Spectator_1 = require("./Spectator");
 var system_1 = require("../system");
 
 var NAME_KEY = "vexmp_name";
@@ -78,6 +79,7 @@ class Multiplayer {
     this.mapPosition = (s) => (s.l === system_1.BalanceData.mainmenuID ? MenuLayout.fromMenu(world, s) : s);
 
     this.overlay = new Overlay_1.Overlay(config.room, { rename: (name) => this.rename(name) });
+    this.spectator = new Spectator_1.Spectator(this);
     this.connection = new Connection_1.Connection(config.server, {
       hello: () => ({ t: "hello", room: config.room, name: config.name }),
       onStatus: (status) => {

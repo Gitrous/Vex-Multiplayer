@@ -5,8 +5,9 @@
 // - Entering an act (hub act blocks, "next level") asks the server, which answers with the
 //   race's act. After spawning there the player is frozen (World.pauseWorld) until the
 //   countdown ends; then everybody starts at once.
-// - Reaching the finish portal reports the time and waits, frozen, until every participant
-//   has finished. Then the results are shown and the game's own level-complete panel opens.
+// - Reaching the finish portal reports the time and waits until every participant has
+//   finished, spectating the others meanwhile (Spectator). Then the results are shown
+//   and the game's own level-complete panel opens.
 //
 // The World calls interceptTransition() from showSubSceneTransition and interceptFinish()
 // from finishLevel; either returns true when it took over.
@@ -69,6 +70,7 @@ class RoomFlow {
     this.pendingLoad = null;
     if (this.race && this.race.frozen) this.world.resumeWorld();
     this.race = null;
+    this.mp.spectator.stop();
   }
 
   interceptTransition(sub, levelNum, hard) {
@@ -100,7 +102,11 @@ class RoomFlow {
     r.finished = true;
     r.finishMs = performance.now() - r.startedAt;
     this.mp.connection.send({ t: "finish", ms: Math.round(r.finishMs), deaths: this.world.currentDeaths || 0 });
-    this.world.pauseWorld();
+    // The world keeps running (obstacles move while spectating). The finish portal already
+    // made the player inactive; make sure of it however finishLevel was reached.
+    this.world.player.alive = false;
+    this.world.keys.resetKeys();
+    this.mp.spectator.start();
     return true;
   }
 
@@ -143,6 +149,7 @@ class RoomFlow {
     var r = this.race;
     this.notice = { results: msg.results, act: msg.act, hard: msg.hard, until: performance.now() + RESULTS_MS };
     this.race = null;
+    this.mp.spectator.stop();
     if (r && r.finished) {
       // Now the game's own "level complete" panel (saves progress; its buttons lead on).
       setTimeout(() => {
@@ -170,6 +177,7 @@ class RoomFlow {
       }
       this.lastLoc = loc;
       this.mp.connection.send({ t: "loc", loc: loc });
+      this.mp.spectator.stop();
     }
 
     if (this.pendingLoad && !w.transition.visible && (loc === "hub" || loc === "act")) {
@@ -203,7 +211,14 @@ class RoomFlow {
       system_1.BalanceData.actStartTime = Date.now(); // the HUD timer counts the race
       this.notice = { text: "¡YA!", big: true, until: now + 800 };
     }
+    this.mp.spectator.update((id) => this.isRacing(id));
     this.renderBanner(now);
+  }
+
+  // Taking part in the current race and not finished (or quit) yet.
+  isRacing(id) {
+    var sr = this.room && this.room.race;
+    return !!sr && sr.participants.indexOf(id) >= 0 && !sr.finished.some((f) => f.id === id);
   }
 
   name(id) {

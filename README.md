@@ -21,15 +21,20 @@ npm run dev      # abre http://localhost:8080; recompila al guardar (recarga la 
 
 1. Arranca el servidor: `npm run build && npm start` (o `npm run dev` mientras desarrollas). Muestra las
    direcciones en las que escucha, incluidas las de tu red local.
-2. Abre el juego. En la esquina inferior izquierda aparece el panel **Sala**: pulsa **Invitar** para copiar
-   el enlace y compártelo. Hasta 4 jugadores por sala; el quinto verá «Sala llena».
+2. Abre el juego (por el servidor, `http://…:8080`, no el archivo `index.html` directamente). En la esquina
+   inferior izquierda está el panel **Sala**: el código de tu sala, tu nombre marcado con «(tú)» y los
+   demás jugadores. **Invitar** copia el enlace para compartirlo; tus amigos también pueden pulsar
+   **Unirse con código** y escribir el código (o pegar el enlace). Hasta 4 jugadores por sala; el quinto
+   verá «Sala llena».
 3. **Menú:** todos aparecen en el menú principal y se ven. Cuando **todos** han pulsado **JUGAR**, entráis
    juntos al hub.
 4. **Carrera:** en el hub, el primero que entra en un acto lo elige. Los demás, entren al acto que entren,
    van a ese mismo acto y esperan congelados en la salida. Cuando han llegado todos, empieza una cuenta
    atrás 3‑2‑1 y salís a la vez.
-5. **Meta:** al llegar esperas con tu tiempo. La carrera no termina hasta que acaban todos (quien vuelve al
-   hub abandona). Entonces se muestra la clasificación por tiempo y después el panel de nivel completado.
+5. **Meta:** al llegar esperas con tu tiempo y ves correr a los demás: la cámara sigue a alguien que aún
+   está corriendo y con **←/→** (o las flechas de la barra inferior) cambias de jugador. La carrera no
+   termina hasta que acaban todos (quien vuelve al hub abandona). Entonces se muestra la clasificación por
+   tiempo y después el panel de nivel completado.
 
 Cada jugador tiene un color y su nombre encima del personaje (**Cambiar nombre** en el panel, o `?name=Ana`
 en la URL). Os veis en el menú, el hub y los actos; en la torre no, porque sus pisos son aleatorios en cada
@@ -49,7 +54,7 @@ De momento no hay interacción física: no chocáis ni compartís objetos ni mue
 | `npm run build` | Genera `dist/vex7.js`, con source map que apunta a `src/` |
 | `npm run build:release` | Lo mismo, pero minificado |
 | `npm test` | Arranca el juego en Chromium sin ventana: menú, hub, caminar y saltar; falla si hay errores |
-| `npm run test:mp` | 4 jugadores: menú, hub, carrera y resultados; un quinto rechazado (unos 10 minutos) |
+| `npm run test:mp` | 4 jugadores: menú, hub, carrera, modo espectador y resultados; un quinto rechazado (unos 10 minutos) |
 | `npm run test:server` | Tests unitarios de la lógica de la sala (instantáneos) |
 | `npm run test:original` | El mismo test con el bundle original, para comparar |
 | `npm run format` | Formatea el código con Prettier |

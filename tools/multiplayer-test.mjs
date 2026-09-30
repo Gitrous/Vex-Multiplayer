@@ -7,7 +7,8 @@
 //   - race: P1 picks act 1, P2 asks for act 3 but is sent to act 1; everybody waits frozen
 //     at the start until the last player arrives, then the countdown starts them together
 //   - results come only when every player has finished (P3 quits: DNF), then the game's
-//     level-complete panel opens
+//     level-complete panel opens; meanwhile the finished players spectate: the camera
+//     follows a player still racing, and ←/→ switch players
 //   - a player leaving disappears for the others
 //
 //   node tools/multiplayer-test.mjs      (run `npm run build` first)
@@ -183,7 +184,7 @@ try {
     if (levels.some((l) => l !== "1")) throw new Error(`not all in act 1: ${levels}`);
   });
 
-  await step("results only once every player has finished (P3 quits), then the level panel", async () => {
+  await step("no results until every player has finished (P3 quits)", async () => {
     await finish(p2);
     await finish(p1);
     // P3 leaves the act through the pause menu's "hub" button, which is a DNF.
@@ -202,6 +203,51 @@ try {
       () => window.__vexMultiplayer.flow.notice && !!window.__vexMultiplayer.flow.notice.results,
     );
     if (early) throw new Error("results shown before P4 finished");
+  });
+
+  await step("while waiting, P1 spectates P4 (still racing) and can switch players", async () => {
+    const spec = () =>
+      ev(p1, () => {
+        const mp = window.__vexMultiplayer;
+        return {
+          active: mp.spectator.active,
+          target: mp.spectator.targetId,
+          camX: window.__vexGame.scene.getScene("world").cameraX,
+        };
+      });
+    let s = await spec();
+    if (!s.active || s.target !== ids[3]) throw new Error(`P1 should follow P4 (#${ids[3]}): ${JSON.stringify(s)}`);
+    // P4 runs; P1's camera must follow P4's ghost.
+    const startX = await ev(p4, () => window.__vexGame.scene.getScene("world").player.xPos);
+    await p4.page.keyboard.down("ArrowRight");
+    await p4.page.waitForFunction((x) => window.__vexGame.scene.getScene("world").player.xPos > x + 60, startX, LONG);
+    await p4.page.keyboard.up("ArrowRight");
+    await p1.page.waitForFunction(
+      (id) => {
+        const g = window.__vexMultiplayer.remotes.get(id).container;
+        return Math.abs(window.__vexGame.scene.getScene("world").cameraX - g.x) < 15;
+      },
+      ids[3],
+      LONG,
+    );
+    s = await spec();
+    if (!(s.camX > startX + 40))
+      throw new Error(`P1's camera didn't move with P4: ${JSON.stringify(s)} from ${startX}`);
+    await p1.page.screenshot({ path: path.join(outDir, "mp-5-spectating.png") });
+    // → switches to the other visible player (P2, waiting at the finish); P3 is in the hub.
+    await p1.page.keyboard.press("ArrowRight");
+    await p1.page.waitForFunction((id) => window.__vexMultiplayer.spectator.targetId === id, ids[1], {
+      timeout: 30000,
+    });
+    const label = await ev(p1, () => document.querySelector("#vexmp-spec .label").textContent);
+    if (!/P2/.test(label)) throw new Error(`spectator bar says ${label}`);
+    await p1.page.keyboard.press("ArrowRight");
+    await p1.page.waitForFunction((id) => window.__vexMultiplayer.spectator.targetId === id, ids[3], {
+      timeout: 30000,
+    });
+  });
+
+  await step("when the last one finishes: results, then the level panel", async () => {
     await finish(p4);
     await waitAll(players, () => {
       const n = window.__vexMultiplayer.flow.notice;
@@ -215,6 +261,8 @@ try {
       throw new Error(`results not ranked by time: ${JSON.stringify(results)}`);
     if (byTime.slice().sort().join() !== "P1,P2,P4" || results.at(-1).name !== "P3" || !results.at(-1).dnf)
       throw new Error(`unexpected results: ${JSON.stringify(results)}`);
+    const spectating = await ev(p1, () => window.__vexMultiplayer.spectator.active);
+    if (spectating) throw new Error("still spectating after the race");
     await waitAll(
       [p1, p2, p4],
       (panel) => window.__vexGame.scene.getScene("world").panelManager.currentPanel === panel,

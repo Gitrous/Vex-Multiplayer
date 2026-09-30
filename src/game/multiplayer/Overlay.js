@@ -26,7 +26,13 @@ var CSS =
   "font:600 18px/1.4 system-ui,sans-serif;color:#fff;background:rgba(10,20,40,.8);border-radius:10px;" +
   "padding:10px 18px;text-align:center;pointer-events:none;display:none}" +
   "#vexmp-banner.big{font-size:96px;line-height:1.1;padding:6px 40px;top:35%}" +
-  "#vexmp-banner ol{margin:6px 0 0;padding:0;list-style:none;font-weight:500;text-align:left}";
+  "#vexmp-banner ol{margin:6px 0 0;padding:0;list-style:none;font-weight:500;text-align:left}" +
+  "#vexmp-spec{position:fixed;left:50%;bottom:16px;transform:translateX(-50%);z-index:1000;display:none;" +
+  "align-items:center;gap:10px;font:600 16px/1.3 system-ui,sans-serif;color:#fff;background:rgba(10,20,40,.8);" +
+  "border-radius:10px;padding:6px 8px;user-select:none}" +
+  "#vexmp-spec button{font:inherit;font-size:18px;color:#fff;background:rgba(255,255,255,.15);border:0;" +
+  "border-radius:6px;width:34px;height:30px;cursor:pointer}#vexmp-spec button:hover{background:rgba(255,255,255,.3)}" +
+  "#vexmp-spec .dot{width:10px;height:10px;border-radius:50%;display:inline-block;margin-right:6px}";
 
 function hex(color) {
   return "#" + ("000000" + color.toString(16)).slice(-6);
@@ -63,7 +69,8 @@ class Overlay {
       '<button class="copy" title="Copiar enlace para invitar">Invitar</button>' +
       '<button class="toggle" title="Ocultar/mostrar">–</button></div>' +
       '<div class="body"><div class="players"></div>' +
-      '<div class="row"><button class="rename">Cambiar nombre</button></div>' +
+      '<div class="row"><button class="rename">Cambiar nombre</button>' +
+      '<button class="join" title="Entrar en la sala de un amigo">Unirse con código</button></div>' +
       '<div class="status"></div></div>';
     this.el.querySelector(".room").textContent = room;
     this.el.querySelector(".copy").onclick = () => this.copyLink();
@@ -71,12 +78,23 @@ class Overlay {
       var name = window.prompt("Tu nombre (máx. 16 caracteres):", "");
       if (name) this.callbacks.rename(name);
     };
+    this.el.querySelector(".join").onclick = () => this.joinByCode();
     this.el.querySelector(".toggle").onclick = () => this.el.classList.toggle("min");
     document.body.appendChild(this.el);
     this.banner = document.createElement("div");
     this.banner.id = "vexmp-banner";
     document.body.appendChild(this.banner);
     this.bannerKey = null;
+    this.spec = document.createElement("div");
+    this.spec.id = "vexmp-spec";
+    this.spec.innerHTML =
+      '<button class="prev" title="Anterior (←)">◀</button><span><span class="dot"></span><span class="label"></span></span>' +
+      '<button class="next" title="Siguiente (→)">▶</button>';
+    this.onSpectate = null; // (dir) => void, set by Spectator
+    this.spec.querySelector(".prev").onclick = () => this.onSpectate && this.onSpectate(-1);
+    this.spec.querySelector(".next").onclick = () => this.onSpectate && this.onSpectate(1);
+    document.body.appendChild(this.spec);
+    this.specKey = null;
     this.playersEl = this.el.querySelector(".players");
     this.statusEl = this.el.querySelector(".status");
     this.setStatus("connecting");
@@ -107,6 +125,21 @@ class Overlay {
     }
   }
 
+  // Spectator bar: label or null to hide; canSwitch shows the arrows; color of the followed player.
+  setSpectator(label, canSwitch, color) {
+    var key = label === null ? null : JSON.stringify([label, !!canSwitch, color]);
+    if (key === this.specKey) return;
+    this.specKey = key;
+    this.spec.style.display = label === null ? "none" : "flex";
+    if (label === null) return;
+    this.spec.querySelector(".label").textContent = label;
+    var dot = this.spec.querySelector(".dot");
+    dot.style.display = color === undefined ? "none" : "";
+    if (color !== undefined) dot.style.background = hex(color);
+    this.spec.querySelector(".prev").style.visibility = canSwitch ? "visible" : "hidden";
+    this.spec.querySelector(".next").style.visibility = canSwitch ? "visible" : "hidden";
+  }
+
   // players: [{ slot, name, level, status, self }]
   render(players) {
     var html = "";
@@ -127,12 +160,29 @@ class Overlay {
     });
   }
 
+  // window.prompt rather than an <input>: the game calls preventDefault on every key.
+  joinByCode() {
+    var answer = window.prompt("Código de la sala (o el enlace de invitación):", "");
+    if (!answer) return;
+    var code = answer.trim();
+    var fromLink = /[?&]room=([^&#\s]+)/.exec(code);
+    code = protocol.sanitizeRoom(fromLink ? decodeURIComponent(fromLink[1]) : code);
+    if (!code) {
+      window.alert("Ese código no es válido: usa letras, números o guiones.");
+      return;
+    }
+    if (code === this.room) return;
+    var url = new URL(location.href);
+    url.searchParams.set("room", code);
+    location.href = url.toString(); // reload into the new room
+  }
+
   copyLink() {
     var url = new URL(location.href);
     url.searchParams.delete("name");
     url.searchParams.set("room", this.room);
     var link = url.toString();
-    var fallback = () => window.prompt("Comparte este enlace:", link);
+    var fallback = () => window.prompt("Comparte este enlace (o el código «" + this.room + "»):", link);
     if (navigator.clipboard && window.isSecureContext) {
       navigator.clipboard.writeText(link).then(() => {
         var btn = this.el.querySelector(".copy");
