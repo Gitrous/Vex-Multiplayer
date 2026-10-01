@@ -143,6 +143,7 @@ class Multiplayer {
     } else if (msg.t === "left") {
       var gone = this.remotes.get(msg.id);
       if (gone) gone.destroy();
+      this.collisions.removeRemote(msg.id);
       this.remotes.delete(msg.id);
     } else if (msg.t === "renamed") {
       if (this.self && msg.id === this.self.id) this.self.name = msg.name;
@@ -168,7 +169,10 @@ class Multiplayer {
   }
 
   clearRemotes() {
-    for (var r of this.remotes.values()) r.destroy();
+    for (var r of this.remotes.values()) {
+      r.destroy();
+      this.collisions.removeRemote(r.id);
+    }
     this.remotes.clear();
   }
 

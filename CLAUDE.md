@@ -3,8 +3,8 @@
 Vex 7 (HTML5, Phaser 3.55.2, originally TypeScript, published by Azerion) recovered from its
 shipped single-file build into an editable source tree. The goal of the project is to add
 multiplayer for up to 10 players per room. Players in a room see each other live, start from the main
-menu together and race through acts, and can turn on collisions to block and push each other. See
-"Multiplayer" below.
+menu together and race through acts, and can turn on collisions to push each other and stand on each
+other's heads. See "Multiplayer" below.
 
 ## Commands
 
@@ -17,7 +17,7 @@ npm run build:release  # dist/vex7.js minified
 npm test               # headless smoke test of dist/vex7.js (build first)
 npm run test:mp        # 4 headless players (room limit 4 here): lobby, hub, race, spectating, results;
                        # a 5th rejected (~10 min)
-npm run test:collisions # 2 headless players: pass through, tick "Colisiones", block and push (~2 min)
+npm run test:collisions # 2 headless players: pass through, tick "Colisiones", push, stand on/ride a head (~2 min)
 npm run test:crowd     # 1 browser + 9 bot clients: a full room of 10 drawn in the hub (~1 min)
 npm run test:server    # room flow unit tests + the real server with 10 WebSocket clients, seconds
 npm run test:original  # same test against reference/vex7.min.js
@@ -158,13 +158,21 @@ collisions (optional) are resolved by each client for its own player.
     the act is `quitRace` (DNF), and a disconnect counts too. Then `raceOver` shows the results for 5 s,
     and the game's level-complete panel opens.
   - **Collisions.** A room setting, off by default. Any player can toggle it with the "Colisiones (empujar)"
-    checkbox in the room panel, which sends `settings {collisions}`. With it on, `Collisions.resolve` runs
-    right after the game logic, from `World.update` through `multiplayer.afterLogic()`. When the local player
-    moves into a ghost's box (±8 × 33 around the feet), it is stopped at the ghost's side and sends
-    `push {to, x, y}`, at most every 250 ms per target. The server relays it as `pushed`, and that player's
-    client applies `Player.applyForce(x, y)`: the pulse blocks' shove, plus a small hop. Collisions are
-    off for 1.5 s after a race's GO, while everybody is still stacked on the spawn point. Contact happens
-    with the ghost, which is 120 ms behind.
+    checkbox in the room panel, which sends `settings {collisions}`. Each client handles its own player
+    (`Collisions`):
+    - **Standing on others.** Every other player's ghost carries a `HeadPlatform`, a real game `Block` (16×8,
+      top at the head, side wall polygons moved out of reach). `Collisions` wraps `world.player.update`
+      and pushes the platforms into `world.blocks` only for that call. The game's own block physics then
+      lets the player land on a head, jump off it, and be carried along (the platform's per-frame move is
+      applied to a player standing on it), while lasers, bullets, particles and the rest never see them.
+    - **Pushing.** `Collisions.resolve` runs right after the game logic (`World.update` →
+      `multiplayer.afterLogic()`). A player moving into a ghost's body box (±8 × 33) stays in contact at its
+      side, keeping its speed and run animation. Every 100 ms it sends `push {to, x: velocity}`. The server
+      relays it as `pushed`, and for 160 ms that player's client sets its player's velocity to at least
+      the pusher's, before `Player.update`, so walls still stop it.
+    - **Spawn grace.** Collisions are off for 1.5 s after a race's GO, while everybody is still stacked on
+      the spawn point.
+    - **Lag.** Contact happens with the ghost, which is 120 ms behind.
   - **Busy and solo.** While a race runs, others entering acts get `raceBusy`. Alone in a room, acts work as
     in the original game.
 - **Client** (`src/game/multiplayer/`):
@@ -192,7 +200,7 @@ collisions (optional) are resolved by each client for its own player.
   In multiplayer, the **T** debug shortcut is disabled.
 - **Debugging:** `window.__vexMultiplayer` (`.self`, `.remotes`, `.flow.room`, `.flow.race`, `.spectator`,
   `.collisions`, `.overlay`).
-- **Not done yet:** standing on each other's heads, shared deaths or objects, a shared tower, a room browser, and a fixed simulation timestep. The host also
+- **Not done yet:** shared deaths or objects, a shared tower, a room browser, and a fixed simulation timestep. The host also
   needs Node: static hosting such as GitHub Pages can't run the server.
 
 ## Gotchas

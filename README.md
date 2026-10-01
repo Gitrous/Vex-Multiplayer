@@ -45,9 +45,10 @@ Node.js (por ejemplo un VPS o un servicio como Render o Fly.io). GitHub Pages no
 archivos estáticos. `?mp=0` juega sin conexión.
 
 **Colisiones:** marca la casilla **«Colisiones (empujar)»** en el panel de la sala (vale para toda la
-sala, cualquiera puede activarla o desactivarla). Con ella activada no podéis atravesaros: si corres contra
-otro jugador te frenas y lo empujas. En la salida de una carrera se ignoran durante 1,5 s para que no salgáis
-todos disparados. No compartís objetos ni muertes, y todavía no se puede subir encima de otro.
+sala, cualquiera puede activarla o desactivarla). Con ella activada no os atravesáis: si corres contra
+otro jugador lo vas **empujando** a tu velocidad mientras sigas avanzando. Además puedes **subirte encima**
+de otro: aterrizas en su cabeza, puedes saltar desde ahí y te lleva consigo si camina. En la salida de una
+carrera se ignoran durante 1,5 s para que no salgáis todos disparados. No compartís objetos ni muertes.
 
 ## Comandos
 
@@ -58,7 +59,7 @@ todos disparados. No compartís objetos ni muertes, y todavía no se puede subir
 | `npm run build:release` | Lo mismo, pero minificado |
 | `npm test` | Arranca el juego en Chromium sin ventana: menú, hub, caminar y saltar; falla si hay errores |
 | `npm run test:mp` | 4 jugadores: menú, hub, carrera, modo espectador y resultados; un quinto rechazado (unos 10 minutos) |
-| `npm run test:collisions` | 2 jugadores: atravesarse, activar colisiones, chocar y empujar (unos 2 minutos) |
+| `npm run test:collisions` | 2 jugadores: atravesarse, activar colisiones, empujar, subirse encima y que te lleve (unos 2 minutos) |
 | `npm run test:crowd` | Sala llena de 10: un navegador y 9 jugadores simulados en el hub (1 minuto) |
 | `npm run test:server` | Tests de la sala y del servidor real con 10 clientes (segundos) |
 | `npm run test:original` | El mismo test con el bundle original, para comparar |

@@ -2,7 +2,8 @@
 // Headless check of player collisions with two players in the hub:
 //   - with collisions off (the default), P1 runs through P2
 //   - P1 ticks "Colisiones" in the room panel; P2's panel shows it ticked too
-//   - with collisions on, P1 runs into P2: P1 is stopped at P2's side and P2 is pushed away
+//   - with collisions on, P1 runs into P2: P1 stays at P2's side and P2 is pushed along
+//   - P1 drops onto P2's head and stands there; P2 walks and carries P1
 //
 //   node tools/collision-test.mjs      (run `npm run build` first)
 import path from "node:path";
@@ -81,7 +82,7 @@ try {
     await p1.page.waitForFunction(() => window.__vexMultiplayer.collisions.enabled, null, LONG);
   });
 
-  await step("collisions on: P1 runs into P2, stops at its side and pushes it", async () => {
+  await step("collisions on: P1 runs into P2, stays at its side and pushes it along", async () => {
     await p1.page.keyboard.down("ArrowRight");
     try {
       // P2's own client moves P2 when it gets pushed.
@@ -100,6 +101,67 @@ try {
       await p1.page.keyboard.up("ArrowRight");
     }
     await p1.page.screenshot({ path: path.join(outDir, "collision-p1.png") });
+  });
+
+  await step("P1 drops onto P2's head and stands there", async () => {
+    // Put P1 in the air right above P2 (as after a jump) and let it fall.
+    await p2.page.waitForTimeout(1500); // P2 at rest after the pushes
+    await ev(
+      p1,
+      (id) => {
+        const g = window.__vexMultiplayer.remotes.get(id).container;
+        const p = window.__vexGame.scene.getScene("world").player;
+        p.xPos = g.x;
+        p.yPos = g.y - 90;
+        p.xVelocity = 0;
+        p.yVelocity = 0;
+        p.falling = true;
+        p.setFall();
+        p.updatePositions();
+      },
+      p2Id,
+    );
+    // Physics advances one step per rendered frame (a few fps headless): wait until P1 has
+    // either landed on something or dropped past P2's head.
+    await p1.page.waitForFunction(
+      (id) => {
+        const g = window.__vexMultiplayer.remotes.get(id).container;
+        const p = window.__vexGame.scene.getScene("world").player;
+        return (p.currentLandBlock && p.yVelocity === 0) || p.yPos > g.y - 20;
+      },
+      p2Id,
+      LONG,
+    );
+    await p1.page.waitForTimeout(1000); // still there a moment later
+    const s = await ev(
+      p1,
+      (id) => {
+        const g = window.__vexMultiplayer.remotes.get(id).container;
+        const p = window.__vexGame.scene.getScene("world").player;
+        return {
+          y: p.yPos,
+          headY: g.y - 33,
+          alive: p.alive,
+          onPlayer: !!(p.currentLandBlock && p.currentLandBlock.type === "player"),
+        };
+      },
+      p2Id,
+    );
+    if (!s.alive || !s.onPlayer || Math.abs(s.y - s.headY) > 3)
+      throw new Error(`P1 isn't standing on P2: ${JSON.stringify(s)}`);
+    await p1.page.screenshot({ path: path.join(outDir, "collision-on-head.png") });
+  });
+
+  await step("P2 walks and carries P1 along", async () => {
+    const before = await xOf(p1);
+    const p2Before = await xOf(p2);
+    await walkUntil(p2, "ArrowRight", (x) => window.__vexGame.scene.getScene("world").player.xPos > x + 30, p2Before);
+    await p1.page.waitForTimeout(1000);
+    const s = await ev(p1, () => {
+      const p = window.__vexGame.scene.getScene("world").player;
+      return { x: p.xPos, onPlayer: !!(p.currentLandBlock && p.currentLandBlock.type === "player") };
+    });
+    if (!s.onPlayer || !(s.x > before + 20)) throw new Error(`P1 wasn't carried: ${before} -> ${JSON.stringify(s)}`);
   });
 
   await step("no uncaught page errors", async () => {
