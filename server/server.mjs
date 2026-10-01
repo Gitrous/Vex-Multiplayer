@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Multiplayer server: serves the game's static files and relays player state between
-// the members of a room over WebSocket (path /mp). Rooms hold up to MAX_PLAYERS players,
+// the members of a room over WebSocket (path /mp). Rooms hold up to MAX_PLAYERS (10) players,
 // are created on first join and disappear when the last player leaves.
 //
 //   node server/server.mjs            PORT (default 8080), HOST (default all interfaces)
@@ -74,7 +74,8 @@ function cleanSnapshot(msg) {
   return out;
 }
 
-export function startServer({ port = 8080, host, root = ROOT, log = console.log } = {}) {
+// maxPlayers: per-room limit, MAX_PLAYERS unless overridden (tests use a smaller one).
+export function startServer({ port = 8080, host, root = ROOT, log = console.log, maxPlayers = MAX_PLAYERS } = {}) {
   const server = http.createServer((req, res) => serveStatic(root, req, res));
   const wss = new WebSocketServer({ server, path: PATH, maxPayload: MAX_MESSAGE_BYTES });
   const rooms = new Map(); // code -> Room
@@ -104,16 +105,16 @@ export function startServer({ port = 8080, host, root = ROOT, log = console.log 
       if (!me) {
         if (msg.t !== "hello") return;
         const code = sanitizeRoom(msg.room) || "lobby";
-        room = rooms.get(code) || new Room(code, { send, log });
+        room = rooms.get(code) || new Room(code, { send, log, maxPlayers });
         if (room.full) {
-          send({ ws }, { t: "full", max: MAX_PLAYERS });
+          send({ ws }, { t: "full", max: maxPlayers });
           ws.close(CLOSE_ROOM_FULL, "room full");
           room = null;
           return;
         }
         rooms.set(code, room);
         me = room.add(nextId++, ws, msg.name);
-        log(`[${code}] + ${me.name} (#${me.id}, slot ${me.slot}) ${room.size}/${MAX_PLAYERS}`);
+        log(`[${code}] + ${me.name} (#${me.id}, slot ${me.slot}) ${room.size}/${maxPlayers}`);
         return;
       }
 
@@ -133,7 +134,7 @@ export function startServer({ port = 8080, host, root = ROOT, log = console.log 
       if (!me) return;
       room.remove(me);
       if (room.size === 0) rooms.delete(room.code);
-      log(`[${room.code}] - ${me.name} (#${me.id}) ${room.size}/${MAX_PLAYERS}`);
+      log(`[${room.code}] - ${me.name} (#${me.id}) ${room.size}/${maxPlayers}`);
     });
   });
 

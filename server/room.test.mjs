@@ -2,6 +2,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { Room } from "./room.mjs";
+import protocol from "../src/game/multiplayer/protocol.js";
 
 function setup(n) {
   const inbox = new Map(); // id -> [msg]
@@ -22,13 +23,24 @@ function setup(n) {
   return { room, players, got, clear, fireTimers };
 }
 
-test("slots are distinct and a fifth player is rejected", () => {
-  const { room, players } = setup(4);
+test("rooms hold 10 players with distinct slots and colours; a smaller limit can be set", () => {
+  const { room, players } = setup(10);
   assert.deepEqual(
     players.map((p) => p.slot),
-    [0, 1, 2, 3],
+    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
   );
   assert.equal(room.full, true);
+  assert.equal(new Set(protocol.PLAYER_COLORS).size, 10);
+  const small = new Room("s", { send: () => {}, maxPlayers: 4 });
+  for (let i = 1; i <= 4; i++) small.add(i, null, "P" + i);
+  assert.equal(small.full, true);
+});
+
+test("a slot freed by a leaving player is reused", () => {
+  const { room, players } = setup(10);
+  room.remove(players[3]);
+  assert.equal(room.full, false);
+  assert.equal(room.add(99, null, "new").slot, 3);
 });
 
 test("everybody goes to the hub only when all are ready", () => {

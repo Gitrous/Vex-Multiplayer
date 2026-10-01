@@ -1,6 +1,6 @@
 # Vex Multiplayer
 
-Versión multijugador de **Vex 7**, el juego de plataformas HTML5 hecho con Phaser 3. Hasta **4 jugadores**
+Versión multijugador de **Vex 7**, el juego de plataformas HTML5 hecho con Phaser 3. Hasta **10 jugadores**
 por sala se ven moverse en tiempo real en el mismo nivel.
 
 El juego se publicó como un único archivo minificado de 3 MB. En este repositorio está recuperado como
@@ -24,8 +24,8 @@ npm run dev      # abre http://localhost:8080; recompila al guardar (recarga la 
 2. Abre el juego (por el servidor, `http://…:8080`, no el archivo `index.html` directamente). En la esquina
    inferior izquierda está el panel **Sala**: el código de tu sala, tu nombre marcado con «(tú)» y los
    demás jugadores. **Invitar** copia el enlace para compartirlo; tus amigos también pueden pulsar
-   **Unirse con código** y escribir el código (o pegar el enlace). Hasta 4 jugadores por sala; el quinto
-   verá «Sala llena».
+   **Unirse con código** y escribir el código (o pegar el enlace). Hasta 10 jugadores por sala; el
+   undécimo verá «Sala llena».
 3. **Menú:** todos aparecen en el menú principal y se ven. Cuando **todos** han pulsado **JUGAR**, entráis
    juntos al hub.
 4. **Carrera:** en el hub, el primero que entra en un acto lo elige. Los demás, entren al acto que entren,
@@ -59,7 +59,8 @@ todos disparados. No compartís objetos ni muertes, y todavía no se puede subir
 | `npm test` | Arranca el juego en Chromium sin ventana: menú, hub, caminar y saltar; falla si hay errores |
 | `npm run test:mp` | 4 jugadores: menú, hub, carrera, modo espectador y resultados; un quinto rechazado (unos 10 minutos) |
 | `npm run test:collisions` | 2 jugadores: atravesarse, activar colisiones, chocar y empujar (unos 2 minutos) |
-| `npm run test:server` | Tests unitarios de la lógica de la sala (instantáneos) |
+| `npm run test:crowd` | Sala llena de 10: un navegador y 9 jugadores simulados en el hub (1 minuto) |
+| `npm run test:server` | Tests de la sala y del servidor real con 10 clientes (segundos) |
 | `npm run test:original` | El mismo test con el bundle original, para comparar |
 | `npm run format` | Formatea el código con Prettier |
 

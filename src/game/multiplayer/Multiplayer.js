@@ -29,6 +29,28 @@ function isSharedLevel(level) {
   return level.replace(/:h$/, "") !== system_1.BalanceData.towerID;
 }
 
+// With many players close together (up to 10 per room) the name labels would overlap:
+// lift each label above any earlier one it would cover.
+function stackLabels(labels) {
+  labels.sort((a, b) => a.x - b.x || b.y - a.y);
+  var placed = [];
+  for (var label of labels) {
+    var w = label.width;
+    var h = label.height;
+    for (var moved = true; moved;) {
+      moved = false;
+      for (var o of placed) {
+        // Only ever upwards, so this ends (at most one move per placed label).
+        if (Math.abs(o.x - label.x) < (o.width + w) / 2 + 2 && Math.abs(o.y - label.y) < h && o.y - h < label.y) {
+          label.y = o.y - h;
+          moved = true;
+        }
+      }
+    }
+    placed.push(label);
+  }
+}
+
 function round(v, digits) {
   var f = Math.pow(10, digits);
   return Math.round(v * f) / f;
@@ -91,7 +113,7 @@ class Multiplayer {
           this.flow.reset();
           this.self = null;
         }
-        this.overlay.setStatus(status);
+        this.overlay.setStatus(status, this.fullMax);
         this.renderOverlay();
       },
       onMessage: (msg) => this.onMessage(msg),
@@ -132,7 +154,8 @@ class Multiplayer {
     } else if (msg.t === "pushed") {
       this.collisions.onPushed(msg);
     } else if (msg.t === "full") {
-      this.overlay.setStatus("full");
+      this.fullMax = msg.max;
+      this.overlay.setStatus("full", msg.max);
     } else {
       this.flow.onMessage(msg);
     }
@@ -211,6 +234,7 @@ class Multiplayer {
     this.flow.update(now);
     var visibleIn = level && isSharedLevel(level) ? level : "";
     for (var r of this.remotes.values()) r.update(now, visibleIn, this.mapPosition);
+    stackLabels([...this.remotes.values()].filter((x) => x.label.visible).map((x) => x.label));
     if (now - this.lastOverlayAt > 500) this.renderOverlay();
   }
 

@@ -27,8 +27,12 @@ const MAX_PUSH = 12;
 const clamp = (v, max) => Math.max(-max, Math.min(max, v));
 
 export class Room {
-  constructor(code, { send, log = () => {}, setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
+  constructor(
+    code,
+    { send, log = () => {}, setTimer = setTimeout, clearTimer = clearTimeout, maxPlayers = MAX_PLAYERS } = {},
+  ) {
     this.code = code;
+    this.maxPlayers = maxPlayers;
     this.players = new Map(); // id -> player
     this.phase = "lobby";
     this.settings = { collisions: false }; // changed by any player from the room panel
@@ -44,7 +48,7 @@ export class Room {
   }
 
   get full() {
-    return this.players.size >= MAX_PLAYERS;
+    return this.players.size >= this.maxPlayers;
   }
 
   broadcast(msg, except) {
@@ -100,7 +104,7 @@ export class Room {
       slot,
       name: me.name,
       room: this.code,
-      max: MAX_PLAYERS,
+      max: this.maxPlayers,
       players: [...this.players.values()].map((p) => this.info(p)),
     });
     this.broadcast({ t: "joined", ...this.info(me) });

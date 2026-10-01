@@ -14,7 +14,7 @@
 //   { t: "push", to, x, y }           ran into player `to` with collisions on: push them by x, y
 // server -> client
 //   { t: "welcome", id, slot, name, room, max, players: [PlayerInfo] }
-//   { t: "full", max }                room already has MAX_PLAYERS; the socket is then closed
+//   { t: "full", max }                room already has its maximum; the socket is then closed
 //   { t: "joined", ...PlayerInfo }    PlayerInfo = { id, slot, name, last?: snapshot }
 //   { t: "left", id }
 //   { t: "renamed", id, name }
@@ -40,7 +40,7 @@
 //                    nearest menu block, x as a fraction of its width, y relative to its top
 "use strict";
 
-var MAX_PLAYERS = 4;
+var MAX_PLAYERS = 10;
 
 exports.MAX_PLAYERS = MAX_PLAYERS;
 exports.PATH = "/mp";
@@ -49,8 +49,11 @@ exports.COUNTDOWN_MS = 3000;
 exports.MAX_MESSAGE_BYTES = 2048;
 exports.CLOSE_ROOM_FULL = 4000;
 
-// One colour per slot (0..MAX_PLAYERS-1): red, blue, green, yellow.
-exports.PLAYER_COLORS = [0xff4d4d, 0x3d9bff, 0x2fd67b, 0xffc233];
+// One colour per slot (0..MAX_PLAYERS-1), all readable on the game's white background: red, blue, green,
+// yellow, purple, orange, cyan, pink, lime, brown.
+exports.PLAYER_COLORS = [
+  0xff4d4d, 0x3d9bff, 0x2fd67b, 0xffc233, 0xb15cff, 0xff8a1f, 0x14c8d4, 0xff5cc6, 0x9bd12a, 0xa9744f,
+];
 
 exports.SNAPSHOT_KEYS = [
   "l",

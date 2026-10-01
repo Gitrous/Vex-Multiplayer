@@ -10,7 +10,7 @@ var STATUS_TEXT = {
   connecting: "Conectando…",
   online: "Conectado",
   offline: "Sin conexión con el servidor, reintentando…",
-  full: "Sala llena (máximo " + protocol.MAX_PLAYERS + " jugadores)",
+  full: "Sala llena",
 };
 
 var CSS =
@@ -107,9 +107,11 @@ class Overlay {
     this.setStatus("connecting");
   }
 
-  setStatus(status) {
+  // max: the room's limit, from the server's "full" message.
+  setStatus(status, max) {
     this.status = status;
-    this.statusEl.textContent = STATUS_TEXT[status] || status;
+    this.statusEl.textContent =
+      status === "full" && max ? "Sala llena (máximo " + max + " jugadores)" : STATUS_TEXT[status] || status;
     this.statusEl.style.display = status === "online" ? "none" : "";
   }
 
