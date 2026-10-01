@@ -126,6 +126,32 @@ test("a new race can't be joined while one is running", () => {
   assert.equal(got(players[0], "loadAct").length, 0);
 });
 
+test("players soloing an act (arrived while a race was busy) don't hold up the next race", () => {
+  const { room, players, fireTimers } = setup(3);
+  for (const p of players) room.handle(p, { t: "ready" });
+  for (const p of players) room.handle(p, { t: "loc", loc: "hub" });
+  room.handle(players[0], { t: "enterAct", act: 1 });
+  room.handle(players[0], { t: "atStart" });
+  room.handle(players[1], { t: "loc", loc: "other" });
+  room.handle(players[2], { t: "loc", loc: "other" });
+  assert.equal(room.race.state, "countdown");
+  fireTimers();
+  // P3 tries to join, is told the race is busy and plays act 4 alone.
+  room.handle(players[2], { t: "loc", loc: "hub" });
+  room.handle(players[2], { t: "enterAct", act: 4 });
+  room.handle(players[2], { t: "loc", loc: "act" });
+  room.handle(players[0], { t: "finish", ms: 100, deaths: 0 });
+  assert.equal(room.race, null);
+  // A new race between P1 and P2 starts without waiting for P3.
+  room.handle(players[0], { t: "loc", loc: "hub" });
+  room.handle(players[1], { t: "loc", loc: "hub" });
+  room.handle(players[0], { t: "enterAct", act: 2 });
+  room.handle(players[1], { t: "enterAct", act: 2 });
+  room.handle(players[0], { t: "atStart" });
+  room.handle(players[1], { t: "atStart" });
+  assert.equal(room.race.state, "countdown");
+});
+
 test("a participant disconnecting doesn't block the race", () => {
   const { room, players, got, fireTimers } = setup(2);
   for (const p of players) room.handle(p, { t: "ready" });

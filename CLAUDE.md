@@ -149,13 +149,16 @@ collisions (optional) are resolved by each client for its own player.
     everybody is sent to that act (`loadAct`), whatever they asked for. In a race the "level objectives"
     panel is pressed automatically. The player is frozen with `World.pauseWorld` once spawned and sends
     `atStart`.
-  - **Countdown.** When every player in the hub or an act is at the start, the server sends
+  - **Countdown.** When every player in the hub, and everybody who entered, is at the start, the server sends
     `countdown {ms: 3000}`. Each client resumes at the same moment, and the HUD timer restarts.
   - **Finish.** `World.finishLevel` reports `finish {ms, deaths}` (time since the start) and the player
     becomes inactive, while the world keeps running. Meanwhile the player spectates (`Spectator`): the
     camera follows a player still racing, and ←/→ (A/D) or the arrows in the bottom bar switch between the
-    players visible in the level. Places are ranked by time. The race ends only when every participant has finished or quit: leaving
-    the act is `quitRace` (DNF), and a disconnect counts too. Then `raceOver` shows the results for 5 s,
+    players visible in the level. Places are ranked by time. The race ends only when every participant has
+    finished or quit. Leaving the race's act any way you like (`RoomFlow.leaveRace`) is a `quitRace` (DNF)
+    and frees the player: that includes pause → "Exit", which calls `backFromSubSkin` and goes back to the
+    previous level, and is turned into a trip to the hub even when that level is an act. A disconnect also
+    counts as quitting. Then `raceOver` shows the results for 5 s,
     and the game's level-complete panel opens.
   - **Collisions.** A room setting, off by default. Any player can toggle it with the "Colisiones (empujar)"
     checkbox in the room panel, which sends `settings {collisions}`. Each client handles its own player
@@ -173,8 +176,9 @@ collisions (optional) are resolved by each client for its own player.
     - **Spawn grace.** Collisions are off for 1.5 s after a race's GO, while everybody is still stacked on
       the spawn point.
     - **Lag.** Contact happens with the ghost, which is 120 ms behind.
-  - **Busy and solo.** While a race runs, others entering acts get `raceBusy`. Alone in a room, acts work as
-    in the original game.
+  - **Busy and solo.** While a race counts down or runs, others entering acts get `raceBusy` and play that
+    act on their own. Solo players in acts don't hold up the next race. Alone in a room, acts work as in
+    the original game.
 - **Client** (`src/game/multiplayer/`):
   - **Hooks.** `World.create` calls `Multiplayer.attach(world, GameStates)`, and `World.update` calls
     `multiplayer.update()` every frame. `World.showSubSceneTransition` and `World.finishLevel` first ask

@@ -12,9 +12,11 @@
 // Races, while playing:
 //   gathering  the first player to enter an act picks it; everybody who enters an act after
 //              that is sent to the same one ("loadAct") and waits frozen at the start
-//              ("atStart"). The race starts when every player in the hub or in an act is at
-//              the start.
+//              ("atStart"). The race starts when every player in the hub, and everybody who
+//              entered, is at the start.
 //   countdown  COUNTDOWN_MS, then running.
+//   (busy)     while a race counts down or runs, others entering acts get "raceBusy" and play
+//              that act on their own.
 //   running    players report "finish" (time since the start, deaths) or "quitRace". Places
 //              are ranked by time. The race ends, with results, only when every participant
 //              still connected has finished or quit.
@@ -249,8 +251,9 @@ export class Room {
     const r = this.race;
     if (!r) return;
     if (r.state === "gathering") {
-      // Everybody in the hub or already in the race's act has to be waiting at the start.
-      const needed = players.filter((p) => p.loc === "hub" || p.loc === "act" || r.entered.has(p.id));
+      // Everybody in the hub, or who asked to join, has to be waiting at the start. Players
+      // playing an act on their own (they arrived while a race was busy) don't hold it up.
+      const needed = players.filter((p) => p.loc === "hub" || r.entered.has(p.id));
       if (r.atStart.size && needed.every((p) => r.atStart.has(p.id))) {
         r.state = "countdown";
         r.participants = new Set(r.atStart);

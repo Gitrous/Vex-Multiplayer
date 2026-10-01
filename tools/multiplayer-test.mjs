@@ -188,8 +188,23 @@ try {
   await step("no results until every player has finished (P3 quits)", async () => {
     await finish(p2);
     await finish(p1);
-    // P3 leaves the act through the pause menu's "hub" button, which is a DNF.
-    await ev(p3, (hub) => window.__vexGame.scene.getScene("world").showSubSceneTransition(hub), SubSceneList.Hub);
+    // P3 quits through the pause menu's "Exit", which goes back to the previous level. Make
+    // that an act (as when a race is entered from a finished act): it used to leave P3 stuck
+    // in the race's act behind "a race is under way". It must end in the hub, as a DNF.
+    await ev(p3, () => {
+      const w = window.__vexGame.scene.getScene("world");
+      w.prevLevelID = "2";
+      w.panelManager.show(4); // PanelList.PanelPause
+      w.panelManager.stock[4].goBack();
+    });
+    await p3.page.waitForFunction(
+      (hub) => {
+        const w = window.__vexGame.scene.getScene("world");
+        return w.currSubScene === hub && w.state === 1 && !w.transition.visible && !window.__vexMultiplayer.flow.race;
+      },
+      SubSceneList.Hub,
+      LONG,
+    );
     await p1.page.waitForFunction(
       () => {
         const r = window.__vexMultiplayer.flow.room.race;
@@ -204,6 +219,16 @@ try {
       () => window.__vexMultiplayer.flow.notice && !!window.__vexMultiplayer.flow.notice.results,
     );
     if (early) throw new Error("results shown before P4 finished");
+    // P3, out of the race, can still play: entering an act while the race runs plays it solo.
+    await enterAct(p3, 2);
+    await p3.page.waitForFunction(
+      () => {
+        const w = window.__vexGame.scene.getScene("world");
+        return w.currLevelID === "2" && !w.transition.visible && !window.__vexMultiplayer.flow.race;
+      },
+      null,
+      LONG,
+    );
   });
 
   await step("while waiting, P1 spectates P4 (still racing) and can switch players", async () => {
@@ -255,7 +280,7 @@ try {
       return n && n.results;
     });
     await p2.page.screenshot({ path: path.join(outDir, "mp-6-results.png") });
-    const results = await ev(p1, () => window.__vexMultiplayer.flow.notice.results);
+    const results = await ev(p1, () => window.__vexMultiplayer.flow.lastResults);
     const finishers = results.filter((r) => !r.dnf);
     const byTime = [...finishers].sort((a, b) => a.ms - b.ms).map((r) => r.name);
     if (finishers.map((r) => r.name).join() !== byTime.join() || finishers.some((r, i) => r.place !== i + 1))

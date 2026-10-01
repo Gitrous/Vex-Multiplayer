@@ -33,7 +33,8 @@ npm run dev      # abre http://localhost:8080; recompila al guardar (recarga la 
    atrás 3‑2‑1 y salís a la vez.
 5. **Meta:** al llegar esperas con tu tiempo y ves correr a los demás: la cámara sigue a alguien que aún
    está corriendo y con **←/→** (o las flechas de la barra inferior) cambias de jugador. La carrera no
-   termina hasta que acaban todos (quien vuelve al hub abandona). Entonces se muestra la clasificación por
+   termina hasta que acaban todos. Puedes abandonar cuando quieras (pausa → **Exit**, o volver al hub): vas al
+   hub y quedas libre. Si entras en un acto mientras hay una carrera en curso, lo juegas por tu cuenta. Entonces se muestra la clasificación por
    tiempo y después el panel de nivel completado.
 
 Cada jugador tiene un color y su nombre encima del personaje (**Cambiar nombre** en el panel, o `?name=Ana`

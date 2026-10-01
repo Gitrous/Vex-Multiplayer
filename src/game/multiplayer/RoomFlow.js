@@ -76,18 +76,23 @@ class RoomFlow {
   interceptTransition(sub, levelNum, hard) {
     if (this.bypass || !this.online) return false;
     var S = SubSceneList_1.SubSceneList;
+    var isAct = sub === S.Act || sub === S.Vex;
+    // Leaving the race's act through the game's own menus. Pause → "Exit" goes back to the
+    // previous level, which is another act when the race was entered from one: abandon the
+    // race and go to the hub instead of asking to enter that act.
+    if (isAct && this.race && this.loc() === "act" && !this.pendingLoad) {
+      this.leaveRace();
+      this.runBypassed(() => this.world.showSubSceneTransition(S.Hub));
+      return true;
+    }
     if (sub === S.Hub && this.loc() === "menu") {
       this.readySent = true;
       this.mp.connection.send({ t: "ready" });
       return true;
     }
     // Alone in the room, acts work as in the original game: no countdown, no results.
-    if (
-      (sub === S.Act || sub === S.Vex) &&
-      this.room &&
-      this.room.phase === "playing" &&
-      this.room.players.length > 1
-    ) {
+    if (isAct && this.room && this.room.phase === "playing" && this.room.players.length > 1) {
+      this.requested = { sub: sub, levelNum: levelNum, hard: hard }; // played solo if a race is busy
       this.mp.connection.send({ t: "enterAct", act: "" + levelNum, hard: !!hard });
       return true;
     }
@@ -110,6 +115,20 @@ class RoomFlow {
     return true;
   }
 
+  // The player left the race's act: a DNF unless already finished. Either way the player is
+  // free now (no more waiting banner or spectating); the results still show when it ends.
+  leaveRace() {
+    var r = this.race;
+    if (!r) return;
+    this.race = null;
+    if (!r.finished) {
+      this.mp.connection.send({ t: "quitRace" });
+      this.notice = { text: "Has abandonado la carrera", until: performance.now() + BUSY_MS };
+    }
+    if (r.frozen) this.world.resumeWorld();
+    this.mp.spectator.stop();
+  }
+
   runBypassed(fn) {
     this.bypass = true;
     try {
@@ -130,12 +149,24 @@ class RoomFlow {
         if (this.loc() === "menu") this.runBypassed(() => this.world.showSubSceneTransition(S.Hub));
         break;
       case "loadAct":
+        this.requested = null;
         this.race = { act: msg.act, hard: msg.hard, frozen: false, goAt: 0, startedAt: 0, finished: false };
         this.pendingLoad = { act: msg.act, hard: msg.hard };
         break;
-      case "raceBusy":
-        this.notice = { text: "Hay una carrera en curso: espera a que termine", until: performance.now() + BUSY_MS };
+      case "raceBusy": {
+        // Not part of the race under way: play the act on your own instead of waiting.
+        var req = this.requested;
+        this.requested = null;
+        this.notice = {
+          text: "Hay una carrera en curso: juegas este acto por tu cuenta",
+          until: performance.now() + BUSY_MS,
+        };
+        var where = this.loc();
+        if (req && (where === "hub" || where === "act") && !this.world.transition.visible) {
+          this.runBypassed(() => this.world.showSubSceneTransition(req.sub, req.levelNum, req.hard));
+        }
         break;
+      }
       case "countdown":
         if (this.race && this.race.frozen) this.race.goAt = performance.now() + msg.ms;
         break;
@@ -147,6 +178,7 @@ class RoomFlow {
 
   onRaceOver(msg) {
     var r = this.race;
+    this.lastResults = msg.results; // kept after the banner goes (debugging, tests)
     this.notice = { results: msg.results, act: msg.act, hard: msg.hard, until: performance.now() + RESULTS_MS };
     this.race = null;
     this.mp.spectator.stop();
@@ -171,10 +203,7 @@ class RoomFlow {
     var GameStates = this.mp.GameStates;
     var loc = this.loc();
     if (this.online && loc !== this.lastLoc) {
-      if (this.race && this.lastLoc === "act" && !this.race.finished && !this.pendingLoad) {
-        this.mp.connection.send({ t: "quitRace" });
-        this.race = null;
-      }
+      if (this.race && this.lastLoc === "act" && !this.pendingLoad) this.leaveRace();
       this.lastLoc = loc;
       this.mp.connection.send({ t: "loc", loc: loc });
       this.mp.spectator.stop();
