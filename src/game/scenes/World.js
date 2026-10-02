@@ -425,21 +425,55 @@ World.prototype.collectCoin = function () {
   SaveGame_1.SaveGame.getInstance().saveProgress();
 };
 
+// The game's physics moves a fixed amount per call to updateLogic, and the original game
+// called it once per rendered frame: below 60 fps the whole game ran in slow motion (half
+// speed at 30 fps). Now late frames run extra steps to keep about 60 steps per second, up to
+// MAX_STEPS_PER_FRAME. Fast displays are unchanged: there is always at least one step per frame.
+var STEP_MS = 1000 / 60,
+  MAX_STEPS_PER_FRAME = 4;
+
+World.prototype.logicSteps = function () {
+  var now = performance.now(),
+    last = this.lastStepAt;
+  this.lastStepAt = now;
+  if (last === undefined || now - last > 250) {
+    // first frame, or back from a hidden tab / long pause: don't fast-forward
+    this.stepDebt = 0;
+    return 1;
+  }
+  this.stepDebt += (now - last) / STEP_MS - 1;
+  var steps = 1;
+  while (this.stepDebt >= 1 && steps < MAX_STEPS_PER_FRAME) {
+    steps++;
+    this.stepDebt -= 1;
+  }
+  // Never bank time (fast displays), and drop what a very slow frame couldn't catch up.
+  if (this.stepDebt < 0 || steps === MAX_STEPS_PER_FRAME) {
+    this.stepDebt = 0;
+  }
+  return steps;
+};
+
 World.prototype.update = function () {
   if (this.multiplayer) {
     this.multiplayer.update();
   }
+  var steps = this.logicSteps();
   if (this.state === GameStates.Playing) {
-    this.updateLogic();
-    if (this.multiplayer) {
-      this.multiplayer.afterLogic();
-    }
-    if (!this.multiplayer || !this.multiplayer.spectator.active) {
-      this.cameraLogic();
+    for (var i = 0; i < steps && this.state === GameStates.Playing; i++) {
+      this.updateLogic();
+      if (this.multiplayer) {
+        this.multiplayer.afterLogic();
+      }
+      if (!this.multiplayer || !this.multiplayer.spectator.active) {
+        this.cameraLogic();
+      }
     }
     this.updateParallax();
   } else if (this.state === GameStates.MainMenu) {
-    this.updateLogic();
+    for (var j = 0; j < steps && this.state === GameStates.MainMenu; j++) {
+      this.updateLogic();
+    }
     this.moveBackground(-0.5, -0.5);
   } else if (this.state === GameStates.Skins) {
     this.moveBackground(-0.5, -0.5);

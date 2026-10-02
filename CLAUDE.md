@@ -99,10 +99,13 @@ extends `WorldLayers`, which extends `BasicScene` (a `Phaser.Scene`).
 
 **Game loop and timing.** `World.update` calls `WorldCreator.updateLogic`, which calls `player.update()` and
 then every block, obstacle, particle and item. Physics is custom (SAT polygons: the player has head, body,
-hands and feet polygons; velocities are per frame) and advances **one fixed step per rendered frame, ignoring
-delta**. `NativeChanges.addDelay(11)` makes Phaser skip frames that arrive less than 11 ms after the last
-one. As a result the simulation rate depends on the display: about 60 steps/s at 60 Hz, about 72 at 144 Hz.
-A networked version needs its own fixed timestep.
+hands and feet polygons; velocities are per step) and moves a fixed amount per `updateLogic` call, ignoring
+delta. The original game called it once per rendered frame, so below 60 fps everything ran in slow motion
+(players reported it as "the game goes slow after equipping a skin"). `World.logicSteps` now runs extra
+steps on late frames to keep about 60 steps/s, at most 4 per frame (full speed down to about 20 fps). It
+always runs at least one step per frame, so fast displays behave as before. `NativeChanges.addDelay(11)`
+still drops frames that arrive less than 11 ms after the last one (about 72 steps/s at 144 Hz, as in the
+original).
 
 **Player and input.** `entities/Player` extends `PlayerBase`, which extends `Entity`. It has a spine skeleton
 `"player"` (skins from `BalanceData.currSkin`), `xPos`/`yPos`, `xVelocity`/`yVelocity`, `state`
@@ -204,7 +207,7 @@ collisions (optional) are resolved by each client for its own player.
   In multiplayer, the **T** debug shortcut is disabled.
 - **Debugging:** `window.__vexMultiplayer` (`.self`, `.remotes`, `.flow.room`, `.flow.race`, `.spectator`,
   `.collisions`, `.overlay`).
-- **Not done yet:** shared deaths or objects, a shared tower, a room browser, and a fixed simulation timestep. The host also
+- **Not done yet:** shared deaths or objects, a shared tower, a room browser, and a strict fixed timestep (the game still runs ≥ 1 step per rendered frame). The host also
   needs Node: static hosting such as GitHub Pages can't run the server.
 
 ## Gotchas
