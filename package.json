@@ -13,6 +13,7 @@
     "test:mp": "node tools/multiplayer-test.mjs",
     "test:collisions": "node tools/collision-test.mjs",
     "test:crowd": "node tools/crowd-test.mjs",
+    "test:chat": "node tools/chat-test.mjs",
     "test:server": "node --test server/room.test.mjs server/server.test.mjs",
     "test:original": "node tools/smoke-test.mjs --original",
     "format": "prettier --write \"src/game/**/*.js\" \"tools/**/*.mjs\" \"server/**/*.mjs\"",

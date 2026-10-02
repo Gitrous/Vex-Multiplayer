@@ -152,6 +152,22 @@ test("players soloing an act (arrived while a race was busy) don't hold up the n
   assert.equal(room.race.state, "countdown");
 });
 
+test("chat: lines go to everybody, are cleaned up, rate-limited and kept for newcomers", () => {
+  const { room, players, got } = setup(2);
+  room.handle(players[0], { t: "chat", text: "  hola\n\tqué tal  " });
+  for (const p of players) assert.equal(got(p, "chat").at(-1).text, "hola qué tal");
+  assert.equal(got(players[1], "chat").at(-1).name, "P1");
+  room.handle(players[0], { t: "chat", text: "x".repeat(500) });
+  assert.equal(got(players[1], "chat").at(-1).text.length, 140);
+  room.handle(players[0], { t: "chat", text: "   " });
+  assert.equal(got(players[1], "chat").length, 2, "empty lines are dropped");
+  for (let i = 0; i < 10; i++) room.handle(players[1], { t: "chat", text: "spam " + i });
+  assert.equal(got(players[0], "chat").filter((m) => m.name === "P2").length, 5, "burst of 5");
+  assert.ok(got(players[1], "chatSlow").length > 0);
+  const late = room.add(9, null, "late");
+  assert.equal(got(late, "welcome")[0].chat.length, 7);
+});
+
 test("a participant disconnecting doesn't block the race", () => {
   const { room, players, got, fireTimers } = setup(2);
   for (const p of players) room.handle(p, { t: "ready" });

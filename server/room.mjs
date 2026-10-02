@@ -22,11 +22,14 @@
 //              still connected has finished or quit.
 import protocol from "../src/game/multiplayer/protocol.js";
 
-const { MAX_PLAYERS, COUNTDOWN_MS, sanitizeName } = protocol;
+const { MAX_PLAYERS, COUNTDOWN_MS, sanitizeName, sanitizeChat } = protocol;
 const LOCS = new Set(["menu", "hub", "act", "other"]);
 const PUSH_INTERVAL_MS = 80;
 const MAX_PUSH = 12;
 const clamp = (v, max) => Math.max(-max, Math.min(max, v));
+const CHAT_HISTORY = 30; // messages kept for players who join later
+const CHAT_BURST = 5; // a player can send this many messages at once...
+const CHAT_REFILL_MS = 1000; // ...and one more every second after that
 
 export class Room {
   constructor(
@@ -38,6 +41,7 @@ export class Room {
     this.players = new Map(); // id -> player
     this.phase = "lobby";
     this.settings = { collisions: false }; // changed by any player from the room panel
+    this.chat = []; // last CHAT_HISTORY messages
     this.race = null;
     this.send = send; // (player, msg)
     this.log = log;
@@ -97,6 +101,8 @@ export class Room {
       last: null,
       lastAt: 0,
       lastPushAt: 0,
+      chatTokens: CHAT_BURST,
+      chatAt: 0,
       ready: false,
       loc: "menu",
     };
@@ -108,6 +114,7 @@ export class Room {
       room: this.code,
       max: this.maxPlayers,
       players: [...this.players.values()].map((p) => this.info(p)),
+      chat: this.chat,
     });
     this.broadcast({ t: "joined", ...this.info(me) });
     this.players.set(id, me);
@@ -152,6 +159,23 @@ export class Room {
         this.send(target, { t: "pushed", from: me.id, x, y });
         return;
       }
+      case "chat": {
+        const text = sanitizeChat(msg.text);
+        if (!text) return;
+        const now = Date.now();
+        me.chatTokens = Math.min(CHAT_BURST, me.chatTokens + (now - me.chatAt) / CHAT_REFILL_MS);
+        me.chatAt = now;
+        if (me.chatTokens < 1) {
+          this.send(me, { t: "chatSlow" });
+          return;
+        }
+        me.chatTokens -= 1;
+        const line = { t: "chat", id: me.id, name: me.name, slot: me.slot, text, at: now };
+        this.chat.push(line);
+        if (this.chat.length > CHAT_HISTORY) this.chat.shift();
+        this.broadcast(line); // the sender too: it shows its own line once the server took it
+        return;
+      }
       case "name": {
         const name = sanitizeName(msg.name);
         if (!name) return;
@@ -165,7 +189,6 @@ export class Room {
         if (me.loc === "menu" && this.phase === "playing" && this.race === null) {
           if ([...this.players.values()].every((p) => p.loc === "menu")) {
             this.phase = "lobby";
-            this.settings = { collisions: false }; // changed by any player from the room panel
             for (const p of this.players.values()) p.ready = false;
           }
         }

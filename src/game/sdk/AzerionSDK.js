@@ -13,11 +13,15 @@ function AzerionSDK() {}
 
 AzerionSDK.init = function (t, e, i) {
   if ((i = i === undefined ? true : i) === true) {
+    // Multiplayer: keys typed into text fields (the room chat) must reach them.
+    var isTextField = function (el) {
+      return !!el && (el.tagName === "INPUT" || el.tagName === "TEXTAREA" || el.isContentEditable === true);
+    };
     window.addEventListener("keydown", function (t) {
-      t.preventDefault();
+      if (!isTextField(t.target)) t.preventDefault();
     });
     window.addEventListener("keyup", function (t) {
-      t.preventDefault();
+      if (!isTextField(t.target)) t.preventDefault();
     });
   }
   if (window._azerionIntegration.sa && window._azerionIntegration.sa) {

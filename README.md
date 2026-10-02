@@ -51,6 +51,11 @@ otro jugador lo vas **empujando** a tu velocidad mientras sigas avanzando. Adem�
 de otro: aterrizas en su cabeza, puedes saltar desde ahí y te lleva consigo si camina. En la salida de una
 carrera se ignoran durante 1,5 s para que no salgáis todos disparados. No compartís objetos ni muertes.
 
+**Chat:** pulsa **Enter** (o el botón 💬 abajo a la derecha), escribe y pulsa **Enter** para enviarlo a
+toda la sala (**Esc** cancela). Mientras escribes, tu personaje no se mueve. Los mensajes aparecen abajo a
+la derecha y, durante unos segundos, en un bocadillo encima del personaje de quien habla. Al entrar en
+una sala ves los últimos mensajes. Máximo 140 caracteres; si envías muchos seguidos, te pide que esperes.
+
 ## Comandos
 
 | Comando | Qué hace |
@@ -62,6 +67,7 @@ carrera se ignoran durante 1,5 s para que no salgáis todos disparados. No compa
 | `npm run test:mp` | 4 jugadores: menú, hub, carrera, modo espectador y resultados; un quinto rechazado (unos 10 minutos) |
 | `npm run test:collisions` | 2 jugadores: atravesarse, activar colisiones, empujar, subirse encima y que te lleve (unos 2 minutos) |
 | `npm run test:crowd` | Sala llena de 10: un navegador y 9 jugadores simulados en el hub (1 minuto) |
+| `npm run test:chat` | Chat: escribir sin moverse, mensaje y bocadillo en el otro jugador, historial (unos 2 minutos) |
 | `npm run test:server` | Tests de la sala y del servidor real con 10 clientes (segundos) |
 | `npm run test:original` | El mismo test con el bundle original, para comparar |
 | `npm run format` | Formatea el código con Prettier |
@@ -77,7 +83,7 @@ o indica uno ya instalado con `CHROMIUM_PATH=/ruta/a/chrome`.
 ```
 server/            servidor multijugador (archivos estáticos + WebSocket en /mp)
 src/game/          código del juego (un archivo por módulo, CommonJS)
-  multiplayer/     cliente multijugador: conexión, jugadores remotos, panel de sala
+  multiplayer/     cliente multijugador: conexión, jugadores remotos, panel de sala, chat
   main.js          clase Game (Phaser.Game)
   scenes/          Boot y World (World → WorldCreator → WorldLayers → BasicScene)
   entities/        Player, PlayerBase, Entity...

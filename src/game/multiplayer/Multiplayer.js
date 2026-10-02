@@ -18,6 +18,7 @@ var RoomFlow_1 = require("./RoomFlow");
 var MenuLayout = require("./MenuLayout");
 var Spectator_1 = require("./Spectator");
 var Collisions_1 = require("./Collisions");
+var Chat_1 = require("./Chat");
 var system_1 = require("../system");
 
 var NAME_KEY = "vexmp_name";
@@ -104,6 +105,7 @@ class Multiplayer {
     this.overlay = new Overlay_1.Overlay(config.room, { rename: (name) => this.rename(name) });
     this.spectator = new Spectator_1.Spectator(this);
     this.collisions = new Collisions_1.Collisions(this);
+    this.chat = new Chat_1.Chat(this);
     this.overlay.onCollisions = (on) => this.connection.send({ t: "settings", collisions: on });
     this.connection = new Connection_1.Connection(config.server, {
       hello: () => ({ t: "hello", room: config.room, name: config.name }),
@@ -137,21 +139,31 @@ class Multiplayer {
       this.self = { id: msg.id, slot: msg.slot, name: msg.name };
       this.config.room = msg.room;
       for (var p of msg.players) this.addRemote(p);
+      this.chat.setHistory(msg.chat);
       this.overlay.setStatus("online");
     } else if (msg.t === "joined") {
       this.addRemote(msg);
+      this.chat.addSystem(msg.name + " ha entrado en la sala");
     } else if (msg.t === "left") {
       var gone = this.remotes.get(msg.id);
+      if (gone) this.chat.addSystem(gone.name + " ha salido de la sala");
       if (gone) gone.destroy();
       this.collisions.removeRemote(msg.id);
       this.remotes.delete(msg.id);
     } else if (msg.t === "renamed") {
       if (this.self && msg.id === this.self.id) this.self.name = msg.name;
       var r = this.remotes.get(msg.id);
-      if (r) r.setName(msg.name);
+      if (r) {
+        this.chat.addSystem(r.name + " ahora se llama " + msg.name);
+        r.setName(msg.name);
+      }
     } else if (msg.t === "s") {
       var remote = this.remotes.get(msg.id);
       if (remote) remote.push(msg);
+    } else if (msg.t === "chat") {
+      this.chat.addLine(Object.assign({}, msg, { fresh: true }));
+    } else if (msg.t === "chatSlow") {
+      this.chat.addSystem("Vas muy rápido: espera un momento antes de enviar otro mensaje");
     } else if (msg.t === "pushed") {
       this.collisions.onPushed(msg);
     } else if (msg.t === "full") {
@@ -239,6 +251,7 @@ class Multiplayer {
     var visibleIn = level && isSharedLevel(level) ? level : "";
     for (var r of this.remotes.values()) r.update(now, visibleIn, this.mapPosition);
     stackLabels([...this.remotes.values()].filter((x) => x.label.visible).map((x) => x.label));
+    for (var rb of this.remotes.values()) rb.placeBubble(now);
     if (now - this.lastOverlayAt > 500) this.renderOverlay();
   }
 

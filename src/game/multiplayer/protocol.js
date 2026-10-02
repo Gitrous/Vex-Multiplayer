@@ -12,8 +12,9 @@
 //   { t: "quitRace" }                 left the act before finishing
 //   { t: "settings", collisions }     change the room's settings (any player)
 //   { t: "push", to, x, y }           ran into player `to` with collisions on: push them by x, y
+//   { t: "chat", text }               say something to the room (CHAT_MAX_LENGTH, rate-limited)
 // server -> client
-//   { t: "welcome", id, slot, name, room, max, players: [PlayerInfo] }
+//   { t: "welcome", id, slot, name, room, max, players: [PlayerInfo], chat: [ChatLine] }
 //   { t: "full", max }                room already has its maximum; the socket is then closed
 //   { t: "joined", ...PlayerInfo }    PlayerInfo = { id, slot, name, last?: snapshot }
 //   { t: "left", id }
@@ -25,6 +26,8 @@
 //   { t: "loadAct", act, hard }       enter this act (the race's act, whatever was asked)
 //   { t: "raceBusy" }                 a race is already under way; wait in the hub
 //   { t: "countdown", ms }            everybody is at the start: the race starts in ms
+//   { t: "chat", id, name, slot, text, at }   a chat line (ChatLine), sent to everybody, sender included
+//   { t: "chatSlow" }                 too many messages: this one was dropped
 //   { t: "raceOver", act, hard, results: [{ id, name, slot, ms, deaths, place } | { id, ..., dnf }] }
 //
 // server/room.mjs has the room's game flow.
@@ -77,6 +80,20 @@ exports.SNAPSHOT_KEYS = [
   "mf",
   "my",
 ];
+
+exports.CHAT_MAX_LENGTH = 140;
+
+// Chat text: no control characters, collapsed whitespace, at most CHAT_MAX_LENGTH characters.
+exports.sanitizeChat = function (text) {
+  return Array.from(
+    String(text || "")
+      .replace(/[\u0000-\u001f\u007f]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim(),
+  )
+    .slice(0, exports.CHAT_MAX_LENGTH)
+    .join("");
+};
 
 exports.sanitizeRoom = function (room) {
   return String(room || "")

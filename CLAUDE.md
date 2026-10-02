@@ -19,6 +19,7 @@ npm run test:mp        # 4 headless players (room limit 4 here): lobby, hub, rac
                        # a 5th rejected (~10 min)
 npm run test:collisions # 2 headless players: pass through, tick "Colisiones", push, stand on/ride a head (~2 min)
 npm run test:crowd     # 1 browser + 9 bot clients: a full room of 10 drawn in the hub (~1 min)
+npm run test:chat      # 2-3 headless players: type with Enter without moving, log + bubble, history (~2 min)
 npm run test:server    # room flow unit tests + the real server with 10 WebSocket clients, seconds
 npm run test:original  # same test against reference/vex7.min.js
 npm run format         # prettier (printWidth 120) over src/game and tools
@@ -34,8 +35,8 @@ After changing anything under `src/`, run `npm run build && npm test`. The test 
 Chromium, waits for the main menu, enters the hub, walks and jumps, fails on any uncaught page
 error, reports external requests, and saves screenshots to `test-results/`. Headless WebGL is
 software-rendered and slow, so a run takes about a minute. After changing `src/game/multiplayer/` or
-`server/`, also run `npm run test:server`, `npm run test:collisions`, `npm run test:crowd` and
-`npm run test:mp`.
+`server/`, also run `npm run test:server`, `npm run test:collisions`, `npm run test:crowd`,
+`npm run test:chat` and `npm run test:mp`.
 
 ## Layout
 
@@ -179,6 +180,9 @@ collisions (optional) are resolved by each client for its own player.
     - **Spawn grace.** Collisions are off for 1.5 s after a race's GO, while everybody is still stacked on
       the spawn point.
     - **Lag.** Contact happens with the ghost, which is 120 ms behind.
+  - **Chat.** `chat {text}` (≤ 140 characters, cleaned by `protocol.sanitizeChat`) is broadcast to the whole
+    room, sender included, as `chat {id, name, slot, text, at}`. The server keeps the last 30 lines and sends
+    them in `welcome.chat`. A token bucket (5 messages, one more per second) answers floods with `chatSlow`.
   - **Busy and solo.** While a race counts down or runs, others entering acts get `raceBusy` and play that
     act on their own. Solo players in acts don't hold up the next race. Alone in a room, acts work as in
     the original game.
@@ -192,6 +196,11 @@ collisions (optional) are resolved by each client for its own player.
     label (labels that would overlap are stacked upwards, `stackLabels`). It is interpolated 120 ms in the past and visible only in the same level. Not in the tower, whose
     patterns are random per client.
   - **`Collisions`.** See Room flow above.
+  - **`Chat`.** A DOM box at the bottom right. Enter (capture-phase listener, only when no text field has
+    focus) or the 💬 button opens it. While it's open, `world.input.keyboard.enabled` is false and the keys are
+    reset, so typing WASD doesn't move the player. Enter sends, Escape or blur closes. New lines fade
+    after 12 s, and opening the chat shows the history. Joins, leaves and renames appear as system lines.
+    `RemotePlayer.say` shows the message as a bubble over that player's ghost (3 s + 60 ms per character, at most 7 s).
   - **`Spectator`.** Drives `world.cameraX/Y` (setters that move the camera group), easing toward the
     followed ghost. `World.update` skips `cameraLogic` while it is active.
   - **`MenuLayout`.** Maps menu positions between screen sizes: nearest menu block, fraction of its width,
@@ -206,15 +215,15 @@ collisions (optional) are resolved by each client for its own player.
   `localStorage["vexmp_name"]`. When the page isn't served over http(s), multiplayer is off.
   In multiplayer, the **T** debug shortcut is disabled.
 - **Debugging:** `window.__vexMultiplayer` (`.self`, `.remotes`, `.flow.room`, `.flow.race`, `.spectator`,
-  `.collisions`, `.overlay`).
+  `.collisions`, `.chat`, `.overlay`).
 - **Not done yet:** shared deaths or objects, a shared tower, a room browser, and a strict fixed timestep (the game still runs ≥ 1 step per rendered frame). The host also
   needs Node: static hosting such as GitHub Pages can't run the server.
 
 ## Gotchas
 
 - `AzerionSDK.init` calls `preventDefault()` on every `keydown`/`keyup` on `window`, so browser shortcuts
-  such as F5 don't work while the page has focus. HTML inputs added over the canvas won't receive text
-  either, unless this is changed.
+  such as F5 don't work while the page has focus. It skips events aimed at an input, textarea or
+  contentEditable element (added for the chat), so HTML text fields work.
 - Pressing **T** in the world calls `finishLevel()`. It is a debug shortcut left in the shipped game (only
   registered when multiplayer is off).
 - `data/Constants.IS_EDITOR` and `Levels.loadLevelEdit` are leftovers of the original level editor.
