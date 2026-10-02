@@ -6,6 +6,7 @@
 "use strict";
 
 var protocol = require("./protocol");
+var PanelManager_1 = require("../ui/panels/PanelManager");
 
 var VISIBLE_MS = 12000; // closed chat: how long a new line stays on screen
 var LOG_LINES = 50;
@@ -70,13 +71,21 @@ class Chat {
       (ev) => {
         var t = ev.target;
         var inField = t && (t.tagName === "INPUT" || t.tagName === "TEXTAREA" || t.isContentEditable === true);
-        if (!this.isOpen && ev.key === "Enter" && this.mp.self && !inField) {
+        if (!this.isOpen && ev.key === "Enter" && this.mp.self && !inField && !this.gameUsesEnter()) {
           ev.preventDefault();
           this.open();
         }
       },
       true,
     );
+  }
+
+  // The "level objectives" panel that opens every act starts it with Enter (as well as the
+  // arrows and space): leave Enter to the game there.
+  gameUsesEnter() {
+    var panels = this.world.panelManager;
+    var objectives = PanelManager_1.PanelList.PanelLevelObjectives;
+    return !!panels && panels.currentPanel === objectives;
   }
 
   open() {

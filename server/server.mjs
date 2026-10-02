@@ -60,7 +60,9 @@ function serveStatic(root, req, res) {
       "content-length": stat.size,
       "cache-control": "no-cache",
     });
-    fs.createReadStream(file).pipe(res);
+    fs.createReadStream(file)
+      .on("error", () => res.destroy()) // e.g. the file went away after stat
+      .pipe(res);
   });
 }
 
@@ -91,9 +93,21 @@ export function startServer({ port = 8080, host, root = ROOT, log = console.log,
     let room = null;
     ws.isAlive = true;
     ws.on("pong", () => (ws.isAlive = true));
+    // Bad frames (e.g. a message over MAX_MESSAGE_BYTES) end in an "error" event and then
+    // "close". Without a listener, Node would throw it and take the whole server down.
+    ws.on("error", () => {});
 
     ws.on("message", (data, isBinary) => {
       if (isBinary) return;
+      try {
+        onMessage(data);
+      } catch (e) {
+        // One client's bad message must not stop the server for every room.
+        log(`error handling a message${me ? ` from #${me.id}` : ""}: ${e && e.stack ? e.stack : e}`);
+      }
+    });
+
+    function onMessage(data) {
       let msg;
       try {
         msg = JSON.parse(data);
@@ -128,7 +142,7 @@ export function startServer({ port = 8080, host, root = ROOT, log = console.log,
       } else {
         room.handle(me, msg);
       }
-    });
+    }
 
     ws.on("close", () => {
       if (!me) return;

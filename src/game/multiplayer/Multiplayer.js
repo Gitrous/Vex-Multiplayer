@@ -3,8 +3,9 @@
 // Every client runs the whole game on its own and is the authority for its own player.
 // The local player's state is sent ~15 times per second; the other players in the room
 // are drawn as RemotePlayers when they are in the same level. RoomFlow adds the shared
-// flow on top: start from the main menu together, then race through acts. There is no
-// physical interaction between players (no collisions, shared objects or shared deaths).
+// flow on top: start from the main menu together, then race through acts. Collisions
+// (optional, a room setting) let players push each other and stand on each other's heads,
+// and Chat lets them talk. Objects and deaths are not shared.
 //
 // URL parameters: ?room=<code> (created on first join; one is generated if missing),
 // ?name=<name>, ?server=<ws url> (default: this host, path /mp), ?mp=0 to play offline.

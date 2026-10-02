@@ -3,6 +3,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { WebSocket } from "ws";
 import { startServer } from "./server.mjs";
+import protocol from "../src/game/multiplayer/protocol.js";
 
 const N = 10;
 
@@ -105,4 +106,28 @@ test(`${N} players share a room: lobby, relayed state, race with results; an 11t
     [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
   );
   assert.equal(over.results[0].name, "P10", "fastest time wins");
+});
+
+test("a client sending an oversized or broken message doesn't bring the server down", async (t) => {
+  const srv = startServer({ port: 0, host: "127.0.0.1", log: () => {} });
+  const url = `ws://127.0.0.1:${await srv.ready}/mp`;
+  const clients = [];
+  t.after(async () => {
+    for (const c of clients) c.ws.terminate();
+    await srv.close();
+  });
+  const good = client(url, "good", "x");
+  const bad = client(url, "bad", "x");
+  clients.push(good, bad);
+  bad.ws.on("error", () => {});
+  await good.opened;
+  await bad.opened;
+  await good.next((m) => m.t === "room" && m.players.length === 2);
+  bad.send({ t: "chat", text: { toString: null } });
+  bad.send({ t: "enterAct", act: { toString: 1 } });
+  bad.ws.send("x".repeat(protocol.MAX_MESSAGE_BYTES + 100)); // over the limit: the server drops this client
+  await bad.closed;
+  await good.next((m) => m.t === "left");
+  good.send({ t: "chat", text: "still here" });
+  assert.equal((await good.next((m) => m.t === "chat")).text, "still here");
 });

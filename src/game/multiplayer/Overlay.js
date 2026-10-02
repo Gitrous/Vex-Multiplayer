@@ -181,7 +181,14 @@ class Overlay {
     if (!answer) return;
     var code = answer.trim();
     var fromLink = /[?&]room=([^&#\s]+)/.exec(code);
-    code = protocol.sanitizeRoom(fromLink ? decodeURIComponent(fromLink[1]) : code);
+    if (fromLink) {
+      try {
+        code = decodeURIComponent(fromLink[1]);
+      } catch (e) {
+        code = fromLink[1]; // a stray "%": sanitizeRoom drops it
+      }
+    }
+    code = protocol.sanitizeRoom(code);
     if (!code) {
       window.alert("Ese código no es válido: usa letras, números o guiones.");
       return;

@@ -124,12 +124,14 @@ export class Room {
 
   remove(me) {
     this.players.delete(me.id);
-    if (this.race) {
-      const r = this.race;
+    const r = this.race;
+    if (r && r.state === "gathering") {
       r.entered.delete(me.id);
       r.atStart.delete(me.id);
-      if (r.participants) r.participants.delete(me.id);
-      if (r.entered.size === 0 && (!r.participants || r.participants.size === 0)) this.endRace(false);
+      if (r.entered.size === 0) this.endRace(false);
+    } else if (r && r.participants.has(me.id) && !r.finished.has(me.id)) {
+      // A disconnect counts as quitting: it shows as a DNF in the results.
+      r.finished.set(me.id, { dnf: true, name: me.name, slot: me.slot });
     }
     if (this.players.size === 0) {
       if (this.race && this.race.timer) this.clearTimer(this.race.timer);
@@ -186,12 +188,7 @@ export class Room {
       case "loc": {
         if (!LOCS.has(msg.loc) || msg.loc === me.loc) return;
         me.loc = msg.loc;
-        if (me.loc === "menu" && this.phase === "playing" && this.race === null) {
-          if ([...this.players.values()].every((p) => p.loc === "menu")) {
-            this.phase = "lobby";
-            for (const p of this.players.values()) p.ready = false;
-          }
-        }
+        if (me.loc === "menu") this.backToLobbyIfAllInMenu();
         break;
       }
       case "ready": {
@@ -239,7 +236,7 @@ export class Room {
         if (!r || r.state !== "running" || !r.participants.has(me.id) || r.finished.has(me.id)) return;
         const ms = Math.max(0, Math.round(Number(msg.ms) || 0));
         const deaths = Math.max(0, Math.round(Number(msg.deaths) || 0));
-        r.finished.set(me.id, { ms, deaths, place: 0 });
+        r.finished.set(me.id, { ms, deaths, place: 0, name: me.name, slot: me.slot });
         this.rank(r);
         this.log(`[${this.code}] race: ${me.name} finished #${r.finished.get(me.id).place} in ${ms} ms`);
         break;
@@ -252,7 +249,7 @@ export class Room {
           r.atStart.delete(me.id);
           if (r.entered.size === 0) this.endRace(false);
         } else if (r.participants.has(me.id) && !r.finished.has(me.id)) {
-          r.finished.set(me.id, { dnf: true });
+          r.finished.set(me.id, { dnf: true, name: me.name, slot: me.slot });
         }
         break;
       }
@@ -295,6 +292,16 @@ export class Room {
     }
   }
 
+  // Everybody went back to the menu, and no race is left to finish: the room is a lobby again.
+  // Checked when a player returns to the menu and when a race ends (they may all have gone
+  // back before it did). Not on every change: right after "go" they are all still in the menu.
+  backToLobbyIfAllInMenu() {
+    const players = [...this.players.values()];
+    if (this.phase !== "playing" || this.race || !players.every((p) => p.loc === "menu")) return;
+    this.phase = "lobby";
+    for (const p of players) p.ready = false;
+  }
+
   // Places go by each player's own time since the start (not by arrival at the server,
   // which depends on latency and frame rate), so they can change as others finish.
   rank(r) {
@@ -306,11 +313,12 @@ export class Room {
     const r = this.race;
     this.race = null;
     if (r.timer) this.clearTimer(r.timer);
+    this.backToLobbyIfAllInMenu();
     if (!withResults) return;
     const results = [...r.finished.entries()]
       .map(([id, f]) => {
-        const p = this.players.get(id);
-        return { id, name: p ? p.name : "?", slot: p ? p.slot : 0, ...f };
+        const p = this.players.get(id); // gone if they disconnected: keep the name they had
+        return { id, ...f, name: p ? p.name : f.name, slot: p ? p.slot : f.slot };
       })
       .sort((a, b) => (a.dnf ? 1 : 0) - (b.dnf ? 1 : 0) || (a.place || 99) - (b.place || 99));
     this.log(`[${this.code}] race over: ${results.map((x) => x.name + (x.dnf ? " DNF" : " " + x.ms)).join(", ")}`);

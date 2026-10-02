@@ -171,15 +171,44 @@ test("chat: lines go to everybody, are cleaned up, rate-limited and kept for new
 test("a participant disconnecting doesn't block the race", () => {
   const { room, players, got, fireTimers } = setup(2);
   for (const p of players) room.handle(p, { t: "ready" });
-  for (const p of players) {
-    room.handle(p, { t: "loc", loc: "hub" });
-    room.handle(p, { t: "enterAct", act: 1 });
-    room.handle(p, { t: "atStart" });
-  }
+  for (const p of players) room.handle(p, { t: "loc", loc: "hub" });
+  for (const p of players) room.handle(p, { t: "enterAct", act: 1 });
+  for (const p of players) room.handle(p, { t: "atStart" });
+  assert.equal(room.race.participants.size, 2);
   fireTimers();
   room.handle(players[0], { t: "finish", ms: 100, deaths: 0 });
   room.remove(players[1]);
-  assert.equal(got(players[0], "raceOver").length, 1);
+  const over = got(players[0], "raceOver");
+  assert.equal(over.length, 1);
+  // The one who left still shows, by name, as having quit.
+  assert.deepEqual(
+    over[0].results.map((r) => [r.name, !!r.dnf]),
+    [
+      ["P1", false],
+      ["P2", true],
+    ],
+  );
+});
+
+test("a finisher who disconnects keeps their name and place in the results", () => {
+  const { room, players, got, fireTimers } = setup(2);
+  for (const p of players) room.handle(p, { t: "ready" });
+  for (const p of players) room.handle(p, { t: "loc", loc: "hub" });
+  for (const p of players) room.handle(p, { t: "enterAct", act: 1 });
+  for (const p of players) room.handle(p, { t: "atStart" });
+  assert.equal(room.race.participants.size, 2);
+  fireTimers();
+  room.handle(players[1], { t: "finish", ms: 100, deaths: 0 });
+  room.remove(players[1]);
+  room.handle(players[0], { t: "finish", ms: 200, deaths: 0 });
+  const [over] = got(players[0], "raceOver");
+  assert.deepEqual(
+    over.results.map((r) => [r.name, r.place]),
+    [
+      ["P2", 1],
+      ["P1", 2],
+    ],
+  );
 });
 
 test("the room returns to the lobby when everybody is back in the menu", () => {
@@ -190,6 +219,23 @@ test("the room returns to the lobby when everybody is back in the menu", () => {
   assert.equal(room.phase, "playing");
   room.handle(players[1], { t: "loc", loc: "menu" });
   assert.equal(room.phase, "lobby");
+});
+
+test("...also when the last race ends after everybody went back to the menu", () => {
+  const { room, players } = setup(2);
+  for (const p of players) room.handle(p, { t: "ready" });
+  for (const p of players) room.handle(p, { t: "loc", loc: "hub" });
+  room.handle(players[0], { t: "enterAct", act: 1 });
+  for (const p of players) room.handle(p, { t: "loc", loc: "menu" });
+  assert.equal(room.phase, "playing", "a race is still gathering");
+  room.handle(players[0], { t: "quitRace" });
+  assert.equal(room.race, null);
+  assert.equal(room.phase, "lobby");
+});
+
+test("names keep at most 16 characters without cutting an emoji in half", () => {
+  assert.equal(protocol.sanitizeName("abcdefghijklmno😀xyz"), "abcdefghijklmno😀");
+  assert.equal(protocol.sanitizeName("  <b>Ana</b>  "), "bAna/b");
 });
 
 test("collisions setting: any player toggles it; pushes are relayed only while it is on", () => {

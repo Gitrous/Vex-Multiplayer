@@ -73,7 +73,8 @@ class RemotePlayer {
   }
 
   say(text) {
-    if (text.length > BUBBLE_MAX_CHARS) text = text.slice(0, BUBBLE_MAX_CHARS - 1) + "…";
+    var chars = Array.from(text); // code points: don't cut an emoji in half
+    if (chars.length > BUBBLE_MAX_CHARS) text = chars.slice(0, BUBBLE_MAX_CHARS - 1).join("") + "…";
     this.bubbleText.setText(text);
     var b = this.bubbleText.getTextBounds().local;
     var w = Math.max(b.width, 8) + 10;

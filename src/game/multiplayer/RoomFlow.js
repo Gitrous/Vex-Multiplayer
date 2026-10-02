@@ -39,6 +39,7 @@ class RoomFlow {
     this.lastLoc = null;
     this.readySent = false;
     this.pendingLoad = null; // { act, hard } to load once no transition is running
+    this.requested = null; // { sub, levelNum, hard } of the last enterAct: played solo if a race is busy
     this.race = null; // local race state: { act, hard, frozen, goAt, startedAt, finished, results }
     this.notice = null; // { text, until }
   }
@@ -68,6 +69,7 @@ class RoomFlow {
     this.lastLoc = null;
     this.readySent = false;
     this.pendingLoad = null;
+    this.requested = null;
     if (this.race && this.race.frozen) this.world.resumeWorld();
     this.race = null;
     this.mp.spectator.stop();
@@ -92,7 +94,7 @@ class RoomFlow {
     }
     // Alone in the room, acts work as in the original game: no countdown, no results.
     if (isAct && this.room && this.room.phase === "playing" && this.room.players.length > 1) {
-      this.requested = { sub: sub, levelNum: levelNum, hard: hard }; // played solo if a race is busy
+      this.requested = { sub: sub, levelNum: levelNum, hard: hard };
       this.mp.connection.send({ t: "enterAct", act: "" + levelNum, hard: !!hard });
       return true;
     }
@@ -296,7 +298,10 @@ class RoomFlow {
           (waiting.length ? " — esperando a " + waiting.join(", ") : ""),
       );
     } else if (r && r.frozen && sr && sr.state === "gathering") {
-      var missing = room.players.filter((p) => (p.loc === "hub" || p.loc === "act") && sr.atStart.indexOf(p.id) < 0);
+      // Same rule as the server: players in the hub and those who entered (not solo players in acts).
+      var missing = room.players.filter(
+        (p) => (p.loc === "hub" || sr.entered.indexOf(p.id) >= 0) && sr.atStart.indexOf(p.id) < 0,
+      );
       overlay.setBanner(
         "En la salida — esperando a " +
           (missing.map((p) => this.name(p.id)).join(", ") || "los demás") +

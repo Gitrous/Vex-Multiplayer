@@ -102,9 +102,14 @@ exports.sanitizeRoom = function (room) {
     .slice(0, 24);
 };
 
+// At most 16 characters (code points, so an emoji isn't cut in half).
 exports.sanitizeName = function (name) {
-  return String(name || "")
-    .replace(/[\u0000-\u001f\u007f<>]/g, "")
-    .trim()
-    .slice(0, 16);
+  return Array.from(
+    String(name || "")
+      .replace(/[\u0000-\u001f\u007f<>]/g, "")
+      .trim(),
+  )
+    .slice(0, 16)
+    .join("")
+    .trim();
 };

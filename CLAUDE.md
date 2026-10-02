@@ -54,7 +54,8 @@ software-rendered and slow, so a run takes about a minute. After changing `src/g
 - `server/server.mjs`: the multiplayer server. It serves the static files (an allowlist: `index.html`,
   `version.js`, `assets/`, `dist/`, `patch/`, `reference/`, `src/`) and the WebSocket at `/mp`.
   `server/room.mjs` is one room's game flow (lobby, races), unit-tested in `server/room.test.mjs`;
-  `server/server.test.mjs` runs the real server with 10 WebSocket clients.
+  `server/server.test.mjs` runs the real server with 10 WebSocket clients, and checks that a bad or oversized
+  message only drops that client (every socket has an `error` listener; message handling is wrapped in try/catch).
 - `src/game/multiplayer/`: the multiplayer client. `protocol.js` is shared with the server.
 - `tools/`: `build.mjs`, `smoke-test.mjs`, `multiplayer-test.mjs`, `split-bundle.mjs`, and `lib/harness.mjs` for the
   shared test helpers (it exposes the game as `window.__vexGame` without touching game code).
@@ -162,7 +163,7 @@ collisions (optional) are resolved by each client for its own player.
     finished or quit. Leaving the race's act any way you like (`RoomFlow.leaveRace`) is a `quitRace` (DNF)
     and frees the player: that includes pause → "Exit", which calls `backFromSubSkin` and goes back to the
     previous level, and is turned into a trip to the hub even when that level is an act. A disconnect also
-    counts as quitting. Then `raceOver` shows the results for 5 s,
+    counts as quitting (a DNF under the name the player had). Then `raceOver` shows the results for 5 s,
     and the game's level-complete panel opens.
   - **Collisions.** A room setting, off by default. Any player can toggle it with the "Colisiones (empujar)"
     checkbox in the room panel, which sends `settings {collisions}`. Each client handles its own player
@@ -197,7 +198,7 @@ collisions (optional) are resolved by each client for its own player.
     patterns are random per client.
   - **`Collisions`.** See Room flow above.
   - **`Chat`.** A DOM box at the bottom right. Enter (capture-phase listener, only when no text field has
-    focus) or the 💬 button opens it. While it's open, `world.input.keyboard.enabled` is false and the keys are
+    focus and the "level objectives" panel, which starts an act with Enter, isn't open) or the 💬 button opens it. While it's open, `world.input.keyboard.enabled` is false and the keys are
     reset, so typing WASD doesn't move the player. Enter sends, Escape or blur closes. New lines fade
     after 12 s, and opening the chat shows the history. Joins, leaves and renames appear as system lines.
     `RemotePlayer.say` shows the message as a bubble over that player's ghost (3 s + 60 ms per character, at most 7 s).
