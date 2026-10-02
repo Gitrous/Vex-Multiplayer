@@ -45,6 +45,11 @@ software-rendered and slow, so a run takes about a minute. After changing `src/g
 `server/`, also run `npm run test:server`, `npm run test:collisions`, `npm run test:crowd`,
 `npm run test:chat` and `npm run test:mp`.
 
+## Publishing changes
+
+`main` is the branch the Codespace follows. After every commit pushed to a working branch, also push it to
+`main` (`git push origin HEAD:main`, a fast-forward), so it reaches the Codespace on its next open or refresh.
+
 ## Layout
 
 - `index.html` loads `version.js` and then `dist/vex7.js`. Append `?build=original` to load the untouched
