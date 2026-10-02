@@ -1,0 +1,12 @@
+// GitHub Codespaces. Every time the Codespace is opened or its tab is refreshed (postAttachCommand),
+// update-and-serve.sh brings the code up to date with the repository's default branch, rebuilds the
+// game and restarts the multiplayer server on port 8080. Its log: /tmp/vex-server.log.
+{
+  "name": "Vex Multiplayer",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
+  "postAttachCommand": "bash .devcontainer/update-and-serve.sh",
+  "forwardPorts": [8080],
+  "portsAttributes": {
+    "8080": { "label": "Vex (juego)", "onAutoForward": "notify" }
+  }
+}

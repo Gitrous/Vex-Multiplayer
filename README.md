@@ -56,6 +56,23 @@ toda la sala (**Esc** cancela). Mientras escribes, tu personaje no se mueve. Los
 la derecha y, durante unos segundos, en un bocadillo encima del personaje de quien habla. Al entrar en
 una sala ves los últimos mensajes. Máximo 140 caracteres; si envías muchos seguidos, te pide que esperes.
 
+## Codespaces: actualización automática
+
+Cada vez que abres el Codespace o recargas su pestaña, se ejecuta `.devcontainer/update-and-serve.sh`:
+
+1. Trae lo último de la rama principal del repositorio desde GitHub.
+2. Instala dependencias si han cambiado y compila el juego.
+3. Reinicia el servidor en segundo plano, en el puerto 8080.
+
+No hace falta escribir nada en la terminal. El enlace del juego está en la pestaña **Puertos** (puerto 8080,
+«Vex (juego)»), y el registro del servidor en `/tmp/vex-server.log`.
+
+- **Primera vez:** un Codespace creado antes de añadir esta configuración no la ve hasta reconstruirlo:
+  `Ctrl+Shift+P` → **Codespaces: Rebuild Container** (o crea un Codespace nuevo).
+- **Cambios tuyos:** si has editado archivos sin hacer commit, o tienes commits sin subir, no actualiza el
+  código, para no perder nada. Lo avisa en la terminal y reinicia el servidor con lo que hay.
+- **A mano:** `bash .devcontainer/update-and-serve.sh`. Para seguir otra rama, ponla en `VEX_BRANCH=nombre`.
+
 ## Comandos
 
 | Comando | Qué hace |

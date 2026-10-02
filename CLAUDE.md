@@ -28,6 +28,13 @@ npm run format         # prettier (printWidth 120) over src/game and tools
 In Claude Code on the web, `.claude/hooks/session-start.sh` runs `npm install` and `npm run build` when a
 session starts.
 
+In GitHub Codespaces, `.devcontainer/devcontainer.json` runs `.devcontainer/update-and-serve.sh` on every
+attach (opening or refreshing the Codespace). The script fast-forwards to the repo's default branch, or to
+`VEX_BRANCH`. It skips the update when there are uncommitted edits or unpushed commits. It then runs
+`npm install` when the dependencies changed, builds, and restarts `server/server.mjs` in the background
+(`setsid nohup`, PID in `/tmp/vex-server.pid`, log in `/tmp/vex-server.log`). A `flock` stops two attaches
+from overlapping, and the server must not inherit that lock's file descriptor (`9>&-`).
+
 `npm run split` regenerates `src/game` and `src/vendor` from `reference/vex7.min.js` and
 **discards every edit made there**. It was a one-off recovery step; don't run it on purpose.
 
