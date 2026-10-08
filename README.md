@@ -49,7 +49,12 @@ archivos estáticos. `?mp=0` juega sin conexión.
 sala, cualquiera puede activarla o desactivarla). Con ella activada no os atravesáis: si corres contra
 otro jugador lo vas **empujando** a tu velocidad mientras sigas avanzando. Además puedes **subirte encima**
 de otro: aterrizas en su cabeza, puedes saltar desde ahí y te lleva consigo si camina. En la salida de una
-carrera se ignoran durante 1,5 s para que no salgáis todos disparados. No compartís objetos ni muertes.
+carrera se ignoran durante 1,5 s para que no salgáis todos disparados. Caer rápido sobre la cabeza de otro no
+te mata, y si el de abajo se teletransporta (por ejemplo, al reaparecer) no te arrastra. No compartís objetos
+ni muertes.
+
+**Reiniciar el acto:** pulsa **R** (lo mismo que pausa → «Reintentar»). En una carrera vuelves a la salida,
+pero el cronómetro sigue y tus muertes se mantienen.
 
 **Chat:** pulsa **Enter** (o el botón 💬 abajo a la derecha), escribe y pulsa **Enter** para enviarlo a
 toda la sala (**Esc** cancela). Mientras escribes, tu personaje no se mueve. Los mensajes aparecen abajo a
@@ -84,6 +89,7 @@ No hace falta escribir nada en la terminal. El enlace del juego está en la pest
 | `npm run test:mp` | 4 jugadores: menú, hub, carrera, modo espectador y resultados; un quinto rechazado (unos 10 minutos) |
 | `npm run test:collisions` | 2 jugadores: atravesarse, activar colisiones, empujar, subirse encima y que te lleve (unos 2 minutos) |
 | `npm run test:crowd` | Sala llena de 10: un navegador y 9 jugadores simulados en el hub (1 minuto) |
+| `npm run test:stacking` | Casos límite de las colisiones y la R en carrera, con un jugador simulado (unos 2 minutos) |
 | `npm run test:chat` | Chat: escribir sin moverse, mensaje y bocadillo en el otro jugador, historial (unos 2 minutos) |
 | `npm run test:server` | Tests de la sala y del servidor real con 10 clientes (segundos) |
 | `npm run test:original` | El mismo test con el bundle original, para comparar |

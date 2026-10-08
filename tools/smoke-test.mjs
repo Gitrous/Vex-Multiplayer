@@ -59,6 +59,48 @@ try {
     if (!(minY < before.y)) throw new Error(`player did not jump: y ${before.y} -> min ${minY}`);
   });
   await page.screenshot({ path: path.join(outDir, `${tag}-3-moved.png`) });
+  if (!original) {
+    await step("R restarts the act", async () => {
+      await page.evaluate(() => window.__vexGame.scene.getScene("world").showSubSceneTransition(2, 1)); // act 1
+      // Acts open with the "level objectives" panel; any key but the movement ones (and R) starts it.
+      await page.waitForFunction(
+        () => {
+          const w = window.__vexGame.scene.getScene("world");
+          return w.panelManager.currentPanel === 7 && !w.transition.visible;
+        },
+        null,
+        { timeout: 90000 },
+      );
+      await page.evaluate(() => {
+        const w = window.__vexGame.scene.getScene("world");
+        w.panelManager.stock[7].play();
+      });
+      await page.waitForFunction(
+        () => {
+          const w = window.__vexGame.scene.getScene("world");
+          return w.state === 1 && w.player.alive && w.player.falling === false;
+        },
+        null,
+        { timeout: 90000 },
+      );
+      const spawnX = await page.evaluate(() => window.__vexGame.scene.getScene("world").spawnX);
+      await page.keyboard.down("ArrowRight");
+      await page.waitForFunction((x) => window.__vexGame.scene.getScene("world").player.xPos > x + 60, spawnX, {
+        timeout: 90000,
+      });
+      await page.keyboard.up("ArrowRight");
+      await page.evaluate(() => (window.__vexGame.scene.getScene("world").currentDeaths = 3));
+      await page.keyboard.press("r");
+      await page.waitForFunction(
+        (x) => {
+          const w = window.__vexGame.scene.getScene("world");
+          return Math.abs(w.player.xPos - x) < 2 && w.currentDeaths === 0;
+        },
+        spawnX,
+        { timeout: 90000 },
+      );
+    });
+  }
   await step("no uncaught page errors", async () => {
     if (report.errors.length) throw new Error(report.errors.join("\n"));
   });

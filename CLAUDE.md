@@ -20,6 +20,8 @@ npm run test:mp        # 4 headless players (room limit 4 here): lobby, hub, rac
 npm run test:collisions # 2 headless players: pass through, tick "Colisiones", push, stand on/ride a head (~2 min)
 npm run test:crowd     # 1 browser + 9 bot clients: a full room of 10 drawn in the hub (~1 min)
 npm run test:chat      # 2-3 headless players: type with Enter without moving, log + bubble, history (~2 min)
+npm run test:stacking  # 1 browser + 1 bot placed at will: collision edge cases (sinking ghost, soft landing on a
+                       # head, teleporting ghost, walking out from under), and R in a race (~2 min)
 npm run test:server    # room flow unit tests + the real server with 10 WebSocket clients, seconds
 npm run test:original  # same test against reference/vex7.min.js
 npm run format         # prettier (printWidth 120) over src/game and tools
@@ -43,7 +45,7 @@ Chromium, waits for the main menu, enters the hub, walks and jumps, fails on any
 error, reports external requests, and saves screenshots to `test-results/`. Headless WebGL is
 software-rendered and slow, so a run takes about a minute. After changing `src/game/multiplayer/` or
 `server/`, also run `npm run test:server`, `npm run test:collisions`, `npm run test:crowd`,
-`npm run test:chat` and `npm run test:mp`.
+`npm run test:chat`, `npm run test:stacking` and `npm run test:mp`.
 
 ## Publishing changes
 
@@ -181,13 +183,25 @@ collisions (optional) are resolved by each client for its own player.
     checkbox in the room panel, which sends `settings {collisions}`. Each client handles its own player
     (`Collisions`):
     - **Standing on others.** Every other player's ghost carries a `HeadPlatform`, a real game `Block` (16×8,
-      top at the head, side wall polygons moved out of reach). `Collisions` wraps `world.player.update`
-      and pushes the platforms into `world.blocks` only for that call. The game's own block physics then
-      lets the player land on a head, jump off it, and be carried along (the platform's per-frame move is
-      applied to a player standing on it), while lasers, bullets, particles and the rest never see them.
+      top at the head). `Collisions` wraps `world.player.update` and pushes the platforms into `world.blocks`
+      only for that call. The game's own block physics then lets the player land on a head, jump off it, and be
+      carried along, while lasers, bullets, particles and the rest never see them.
+      - **One-way.** Only the top polygon is in reach: the bottom, walls, ledges and `totalPolygon` are moved
+        away. A platform is only added for a player over it (|dx| < 10) and above its top, allowing one step's
+        fall below it, because the game checks blocks against the position before the last move. With a solid
+        underside, a lagging ghost that sank into the player below became a ceiling coming down: the game's
+        head-bump code moved that player 20 px down (through the floor) or killed them as `squashed`.
+      - **Riding.** `Collisions.carry` moves a rider by the platform's move; the platform's own velocity stays 0.
+        There is no carry for a move over 48 px (a teleport, such as a respawn) or one that would put the rider
+        inside a level block: the rider drops off instead.
+      - **Soft landing.** For the step that reaches a head, `canDieByFalling` is off, so landing on someone is
+        never a `hardLanding` death.
+      - **Busy states.** No heads and no pushes while swimming, climbing a rope, hanging, scaling, kicking,
+        grappling, or on a zipline, cannon, pole or kite (`Collisions.busy`).
     - **Pushing.** `Collisions.resolve` runs right after the game logic (`World.update` →
       `multiplayer.afterLogic()`). A player moving into a ghost's body box (±8 × 33) stays in contact at its
-      side, keeping its speed and run animation. Every 100 ms it sends `push {to, x: velocity}`. The server
+      side, keeping its speed and run animation. This only counts side by side: when the two are more than
+      half a body apart vertically (one on the other's head, or a sunk ghost), neither blocks nor pushes. Every 100 ms it sends `push {to, x: velocity}`. The server
       relays it as `pushed`, and for 160 ms that player's client sets its player's velocity to at least
       the pusher's, before `Player.update`, so walls still stop it.
     - **Spawn grace.** Collisions are off for 1.5 s after a race's GO, while everybody is still stacked on
@@ -237,6 +251,10 @@ collisions (optional) are resolved by each client for its own player.
 - `AzerionSDK.init` calls `preventDefault()` on every `keydown`/`keyup` on `window`, so browser shortcuts
   such as F5 don't work while the page has focus. It skips events aimed at an input, textarea or
   contentEditable element (added for the chat), so HTML text fields work.
+- **R** restarts the act (`World.restartAct`, the same as pause → "retry"), only while playing an act or Vex with
+  no panel open. In a multiplayer race, `RoomFlow.interceptReset` sends the player back to the start but keeps
+  the race clock, the HUD timer and the deaths. R does nothing while frozen at the start or after finishing.
+  The player's own "auto restart"/"auto reset" options are off during a race (`World.isRacing`).
 - Pressing **T** in the world calls `finishLevel()`. It is a debug shortcut left in the shipped game (only
   registered when multiplayer is off).
 - `data/Constants.IS_EDITOR` and `Levels.loadLevelEdit` are leftovers of the original level editor.

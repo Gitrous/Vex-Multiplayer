@@ -131,6 +131,25 @@ class RoomFlow {
     this.mp.spectator.stop();
   }
 
+  // In this race's act, from the start until the player finishes (frozen at the start too).
+  isRacingHere() {
+    return !!this.race && !this.race.finished && this.inRaceAct();
+  }
+
+  // World.resetLevel (R, pause → "retry"). In a race it sends the player back to the start but
+  // keeps the race clock (and the HUD timer) and the deaths: a restart can't be used to cut
+  // either. Frozen at the start, or finished and watching the others, there is nothing to restart.
+  interceptReset() {
+    if (this.bypass || !this.race || !this.inRaceAct()) return false;
+    if (!this.race.startedAt || this.race.finished) return true;
+    var w = this.world;
+    var deaths = w.currentDeaths;
+    this.runBypassed(() => w.resetLevel(false));
+    w.currentDeaths = deaths;
+    w.subScene.updateDeaths(deaths);
+    return true;
+  }
+
   runBypassed(fn) {
     this.bypass = true;
     try {

@@ -77,6 +77,7 @@ World.prototype.create = function () {
   this.game.events.on(Phaser.Core.Events.BLUR, this.onFocusLost, this);
   this.game.events.on(Phaser.Core.Events.FOCUS, this.onFocusFound, this);
   this.multiplayer = Multiplayer_1.Multiplayer.attach(this, GameStates);
+  this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.R).on("down", this.restartAct, this);
   if (!this.multiplayer) {
     // Debug shortcut from the original game; it would let anybody win a race.
     this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.T).on("down", this.finishLevel, this);
@@ -496,7 +497,7 @@ World.prototype.updateLogic = function () {
       this.createNextPattern(),
     this.timerLive === true &&
       ((this.currentTime = BalanceData_1.BalanceData.actStartTime), this.subScene.updateTime()),
-    BalanceData_1.BalanceData.autoReset === true) &&
+    BalanceData_1.BalanceData.autoReset === true && !this.isRacing()) &&
     this.currentLevel.isTargetLevelComplete(this.isCurrLevelHard) === true &&
     Math.round(Date.now() - BalanceData_1.BalanceData.actStartTime) > this.currentLevel.getTopTime(this.isCurrLevelHard)
   ) {
@@ -534,7 +535,31 @@ World.prototype.reset = function () {
   }
 };
 
+// R: start the act over, as pause → "retry" does. Only while playing an act (not in the hub,
+// the tower or the menus, and not with a panel open or during a transition).
+World.prototype.restartAct = function () {
+  var S = SubSceneList_1.SubSceneList;
+  if (
+    this.state !== GameStates.Playing ||
+    this.transition.visible ||
+    this.panelManager.currentPanel !== PanelManager_1.PanelList.NoOne ||
+    (this.currSubScene !== S.Act && this.currSubScene !== S.Vex)
+  ) {
+    return;
+  }
+  this.resetLevel();
+};
+
+// In a multiplayer race the player's own "auto restart"/"auto reset" options are off: the race
+// clock and the death count can't be restarted.
+World.prototype.isRacing = function () {
+  return !!this.multiplayer && this.multiplayer.flow.isRacingHere();
+};
+
 World.prototype.resetLevel = function (t) {
+  if (this.multiplayer && this.multiplayer.flow.interceptReset()) {
+    return;
+  }
   if ((t === undefined && (t = true), this.currSubScene !== SubSceneList_1.SubSceneList.Menu)) {
     this.effectsOverlay.goLight();
     for (var e = 0, i = this.obstacles; e < i.length; e++) i[e].resetLevel();

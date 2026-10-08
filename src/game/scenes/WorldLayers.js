@@ -193,6 +193,7 @@ WorldLayers.prototype.playerDeath = function (t, e, i, n) {
     if (
       ((this.currentDeaths += 1),
       BalanceData_1.BalanceData.autoRestart === true &&
+        !this.isRacing() &&
         this.currentDeaths >= this.currentLevel.getTargetDeath(this.isCurrLevelHard))
     )
       this.resetLevel();
