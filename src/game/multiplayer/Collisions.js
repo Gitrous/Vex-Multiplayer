@@ -14,6 +14,10 @@
 //   move its own player along at the pusher's speed ("push" -> "pushed"). The pushed player
 //   is moved through its normal update, so walls still stop it.
 //
+// - Air gust (space): every client draws the others' gusts (RemotePlayer) and checks them
+//   against its own player; a gust that reaches it blows it away (blast). This works whether
+//   or not the room's collisions setting is on: the gust is an attack, not a collision.
+//
 // Ghosts are drawn INTERP_DELAY_MS in the past, so contact happens with where the other
 // player was a moment ago; that's the price of every client staying authoritative.
 "use strict";
@@ -33,6 +37,9 @@ var PUSH_HOLD_MS = 160; // how long a "pushed" keeps moving the player (covers t
 var START_GRACE_MS = 1500; // after a race starts everybody overlaps at the spawn point
 var LAND_REACH_X = HALF_WIDTH + 2; // the game only lands a player whose centre is over the block
 var ABOVE_TOLERANCE = 2; // feet this far below a head's top (plus one step's fall) still count as "on it"
+var BLAST_SPEED = 6; // how fast another player's air gust blows you away...
+var BLAST_MS = 350; // ...for this long, slowing down to nothing
+var BLAST_HOP = -3; // and a little hop when it catches you on the ground
 var RIDE_MAX_STEP = 48; // a ghost moving more than this in one step teleported (respawn...): don't drag its rider
 
 class HeadPlatform extends Block_1.Block {
@@ -84,6 +91,9 @@ class Collisions {
     this.pushedUntil = 0;
     this.lastPushedAt = 0;
     this.graceUntil = 0;
+    this.blastDir = 0; // -1 / 1 while blown away by somebody's gust
+    this.blastAt = 0;
+    this.gustHit = new Map(); // remote id -> serial of their last gust that hit us
     this.wrapPlayerUpdate();
   }
 
@@ -144,6 +154,7 @@ class Collisions {
 
   // Returns what afterPlayerUpdate has to undo, or null.
   beforePlayerUpdate(now) {
+    this.checkGusts(now);
     if (!this.active(now)) return null;
     var p = this.world.player;
     if (this.busy(p)) return null;
@@ -188,6 +199,35 @@ class Collisions {
       if (p.xVelocity * dir < Math.abs(this.pushedVelocity)) p.xVelocity = this.pushedVelocity;
     }
     return undo;
+  }
+
+  // Before the local player's update: has another player's air gust reached it? Then (and
+  // for BLAST_MS) it is blown in the gust's direction, slowing down as the gust dies out.
+  checkGusts(now) {
+    var p = this.world.player;
+    var w = this.world;
+    var S = this.mp.GameStates;
+    var canBeHit = p && p.alive === true && (w.state === S.Playing || w.state === S.MainMenu);
+    if (canBeHit && !this.busy(p) && now >= this.graceUntil) {
+      for (var r of this.mp.remotes.values()) {
+        var gust = r.gust;
+        if (!gust || !gust.visible || !r.container.visible || this.gustHit.get(r.id) === r.gustSerial) continue;
+        if (!SAT.testPolygonPolygon(gust.poly, p.totalPolygon)) continue;
+        this.gustHit.set(r.id, r.gustSerial);
+        this.blastDir = gust.speed > 0 ? 1 : -1;
+        this.blastAt = now;
+        if (p.falling === false) p.jump(BLAST_HOP, false);
+        SoundManager_1.SoundManager.playSFX("bounce1");
+      }
+    }
+    if (!this.blastDir) return;
+    var left = 1 - (now - this.blastAt) / BLAST_MS;
+    if (left <= 0 || !canBeHit || this.busy(p)) {
+      this.blastDir = 0;
+      return;
+    }
+    var v = this.blastDir * BLAST_SPEED * left;
+    if (p.xVelocity * this.blastDir < Math.abs(v)) p.xVelocity = v;
   }
 
   afterPlayerUpdate(undo) {
@@ -283,6 +323,7 @@ class Collisions {
   }
 
   removeRemote(id) {
+    this.gustHit.delete(id);
     var platform = this.platforms.get(id);
     if (!platform) return;
     if (this.world.blocks) {

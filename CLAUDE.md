@@ -21,7 +21,7 @@ npm run test:collisions # 2 headless players: pass through, tick "Colisiones", p
 npm run test:crowd     # 1 browser + 9 bot clients: a full room of 10 drawn in the hub (~1 min)
 npm run test:chat      # 2-3 headless players: type with Enter without moving, log + bubble, history (~2 min)
 npm run test:stacking  # 1 browser + 1 bot placed at will: collision edge cases (sinking ghost, soft landing on a
-                       # head, teleporting ghost, walking out from under), and R in a race (~2 min)
+                       # head, teleporting ghost, walking out from under), a bot's air gust, R in a race (~2 min)
 npm run test:server    # room flow unit tests + the real server with 10 WebSocket clients, seconds
 npm run test:original  # same test against reference/vex7.min.js
 npm run format         # prettier (printWidth 120) over src/game and tools
@@ -204,6 +204,14 @@ collisions (optional) are resolved by each client for its own player.
       half a body apart vertically (one on the other's head, or a sunk ghost), neither blocks nor pushes. Every 100 ms it sends `push {to, x: velocity}`. The server
       relays it as `pushed`, and for 160 ms that player's client sets its player's velocity to at least
       the pusher's, before `Player.update`, so walls still stop it.
+    - **Air gust.** Space makes the player punch, and at 70% of `punch_01` the game throws a `PlayerWindGust`
+      (an image with a 40×26 polygon that moves 4 px per step for 60 px, then fades: about 0.4 s). Each
+      `RemotePlayer` has its own `PlayerWindGust`. It starts when that player's snapshots show the punch
+      crossing 70%, so everybody sees everybody's gusts, in sync with the delayed ghost, with no extra message.
+      `Collisions.checkGusts` (before every local `Player.update`) tests those gusts against the local player.
+      A gust that reaches it blows it away: xVelocity 6 in the gust's direction, fading out over 350 ms, plus a
+      small hop if it was on the ground, once per gust (`gustSerial`). It works with collisions on or off.
+      There are no blasts while busy, dead, during the race's spawn grace, or in other levels.
     - **Spawn grace.** Collisions are off for 1.5 s after a race's GO, while everybody is still stacked on
       the spawn point.
     - **Lag.** Contact happens with the ghost, which is 120 ms behind.

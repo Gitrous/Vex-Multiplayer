@@ -5,6 +5,7 @@
 //   - you can walk out from under a ghost standing on you, without pushing it
 //   - falling fast onto a head is a soft landing, not a "hard landing" death
 //   - a ghost that teleports (respawn) doesn't drag the player standing on it
+//   - another player's air gust (space) is drawn on their ghost and blows you away
 //   - in a race, R sends you back to the start and keeps the race clock and your deaths
 //
 //   node tools/stacking-test.mjs      (run `npm run build` first)
@@ -44,13 +45,13 @@ const botTimer = setInterval(() => {
     cx: 1,
     cy: 1,
     al: 1,
-    sx: 1,
+    sx: p.sx || 1,
     sy: 1,
     ox: 0,
     oy: 0,
-    a: "stand",
-    lp: 1,
-    p: 0,
+    a: p.a || "stand",
+    lp: p.a ? 0 : 1,
+    p: p.p || 0,
     ts: 1,
     k: 1,
   });
@@ -210,6 +211,41 @@ try {
     const s = await me();
     if (Math.abs(s.x - floor.x) > 20) throw new Error(`the player was dragged along: x ${floor.x} -> ${s.x}`);
     if (Math.abs(s.y - floor.y) > 2) throw new Error(`the player isn't back on the floor: y ${floor.y} -> ${s.y}`);
+    const k = await kills();
+    if (k.length) throw new Error(`the player died: ${k.join(", ")}`);
+  });
+
+  await check("another player's air gust is drawn and blows you away", async () => {
+    bot.pos = { x: floor.x - 30, y: floor.y }; // at your left, facing you
+    await ghostAt(floor.x - 30, floor.y);
+    await placeMe(floor.x, floor.y - 2, 0);
+    await page.waitForFunction(() => window.__vexGame.scene.getScene("world").player.falling === false, null, LONG);
+    const x0 = (await me()).x;
+    const serial = await ev(() => [...window.__vexMultiplayer.remotes.values()][0].gustSerial);
+    // The bot punches: the punch animation runs for 0.87 s; the gust leaves at 70%.
+    const t0 = Date.now();
+    bot.pos = () => ({ x: floor.x - 30, y: floor.y, a: "punch_01", p: Math.min(1, (Date.now() - t0) / 870) });
+    await page.waitForFunction(
+      (n) => {
+        const r = [...window.__vexMultiplayer.remotes.values()][0];
+        return r.gustSerial > n && r.gust.visible;
+      },
+      serial,
+      LONG,
+    );
+    await ev(() => {
+      const g = [...window.__vexMultiplayer.remotes.values()][0].gust;
+      g.__update = g.update;
+      g.update = () => {}; // hold it still for the screenshot (it lasts 0.4 s; headless runs at a few fps)
+    });
+    await page.waitForTimeout(600);
+    await page.screenshot({ path: path.join(outDir, "stacking-gust.png") });
+    await ev(() => {
+      const g = [...window.__vexMultiplayer.remotes.values()][0].gust;
+      g.update = g.__update;
+    });
+    await page.waitForFunction((x) => window.__vexGame.scene.getScene("world").player.xPos > x + 20, x0, LONG);
+    bot.pos = { x: floor.x - 30, y: floor.y };
     const k = await kills();
     if (k.length) throw new Error(`the player died: ${k.join(", ")}`);
   });

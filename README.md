@@ -53,6 +53,9 @@ carrera se ignoran durante 1,5 s para que no salgáis todos disparados. Caer rá
 te mata, y si el de abajo se teletransporta (por ejemplo, al reaparecer) no te arrastra. No compartís objetos
 ni muertes.
 
+**Ráfaga de aire:** con **espacio** tu personaje lanza su ráfaga de aire, y todos la ven. Si alcanza a otro
+jugador, lo lanza por los aires en esa dirección (con o sin la casilla de colisiones).
+
 **Reiniciar el acto:** pulsa **R** (lo mismo que pausa → «Reintentar»). En una carrera vuelves a la salida,
 pero el cronómetro sigue y tus muertes se mantienen.
 

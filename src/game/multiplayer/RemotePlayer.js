@@ -7,6 +7,8 @@ var jd_1 = require("../jd");
 var data_1 = require("../data");
 var Helpers_1 = require("../utils/Helpers");
 var protocol = require("./protocol");
+var PlayerWindGust_1 = require("../entities/PlayerWindGust");
+var PlayerBase_1 = require("../entities/PlayerBase");
 
 var INTERP_DELAY_MS = 120;
 var MAX_BUFFER = 30;
@@ -16,6 +18,12 @@ var BUBBLE_MS = 3000; // how long a chat message stays over the player: this, pl
 var BUBBLE_MS_PER_CHAR = 60; // a bit per character,
 var BUBBLE_MAX_MS = 7000; // up to this
 var BUBBLE_MAX_CHARS = 60;
+// The air gust (space): the game launches it when the punch animation reaches 70%
+// (Player.update, Attack state), from half the player's height, and moves it once per logic step.
+var PUNCH_ANIM = "punch_01";
+var GUST_AT_PROGRESS = 0.7;
+var GUST_HEIGHT = 16.5;
+var STEP_MS = 1000 / 60;
 
 function lerp(a, b, t) {
   return a + (b - a) * t;
@@ -60,6 +68,13 @@ class RemotePlayer {
     this.bubble.visible = false;
     this.sayUntil = 0;
     scene.layerPlayer.add(this.bubble);
+
+    // Their air gust, as the game draws the local player's (PlayerWindGust).
+    this.gust = new PlayerWindGust_1.PlayerWindGust(scene, 0, 0);
+    this.gustSerial = 0; // +1 on every gust, so each one hits a player once (Collisions)
+    this.gustPending = false;
+    this.gustClock = 0;
+    scene.layerPlayer.add(this.gust);
 
     // Below the local player, which is already in this layer.
     scene.layerPlayer.addAt(this.label, 0);
@@ -112,6 +127,7 @@ class RemotePlayer {
 
   // mapPosition(snapshot) -> {x, y} on this screen, or null if it can't be placed.
   update(now, localLevel, mapPosition) {
+    this.advanceGust(now);
     var renderAt = now - INTERP_DELAY_MS;
     var buf = this.snapshots;
     if (!buf.length) return;
@@ -137,18 +153,40 @@ class RemotePlayer {
     var visible = !!pa && s.v === 1 && !!s.l && s.l === localLevel;
     this.container.visible = visible;
     this.label.visible = visible;
-    if (!visible) return;
+    if (!visible) {
+      this.gust.stop();
+      this.gustPending = false;
+      return;
+    }
     this.container.x = x;
     this.container.y = y;
     this.container.rotation = r;
     this.label.x = x;
     this.label.y = y - LABEL_OFFSET_Y * Math.abs(s.cy || 1);
+    if (this.gustPending) {
+      this.gustPending = false;
+      var facing = s.sx < 0 ? PlayerBase_1.FacingDir.Left : PlayerBase_1.FacingDir.Right;
+      this.gust.start(x, y - GUST_HEIGHT, facing);
+      this.gustSerial++;
+    }
+  }
+
+  // The gust moves a fixed amount per game step: catch up with the time since the last frame.
+  advanceGust(now) {
+    var last = this.gustClock || now;
+    this.gustClock = now;
+    if (!this.gust.visible) return;
+    var steps = Math.min(6, Math.round((now - last) / STEP_MS));
+    for (var i = 0; i < steps && this.gust.visible; i++) this.gust.update();
   }
 
   applyDiscrete(s) {
     if (this.current === s) return;
     var prev = this.current;
     this.current = s;
+    // Their punch just reached the point where the game throws the air gust.
+    var wasBefore = !prev || prev.a !== PUNCH_ANIM || prev.p < GUST_AT_PROGRESS || s.p + 0.2 < prev.p;
+    if (s.a === PUNCH_ANIM && s.p >= GUST_AT_PROGRESS && wasBefore) this.gustPending = true;
     var view = this.spine.getView();
     if (s.k !== this.skin && typeof s.k === "number") {
       this.skin = s.k;
@@ -179,6 +217,7 @@ class RemotePlayer {
     this.scene.layerPlayer.remove(this.container, true);
     this.scene.layerPlayer.remove(this.label, true);
     this.scene.layerPlayer.remove(this.bubble, true);
+    this.scene.layerPlayer.remove(this.gust, true);
     this.spine.destroy();
   }
 }
