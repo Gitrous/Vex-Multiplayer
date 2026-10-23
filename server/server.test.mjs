@@ -1,11 +1,11 @@
-// Integration test of the real server with 10 WebSocket clients (no browser): node --test server/
+// Integration test of the real server with MAX_PLAYERS WebSocket clients (no browser): node --test server/
 import test from "node:test";
 import assert from "node:assert/strict";
 import { WebSocket } from "ws";
 import { startServer } from "./server.mjs";
 import protocol from "../src/game/multiplayer/protocol.js";
 
-const N = 10;
+const N = protocol.MAX_PLAYERS;
 
 function client(url, name, room) {
   const ws = new WebSocket(url);
@@ -49,7 +49,7 @@ function client(url, name, room) {
   };
 }
 
-test(`${N} players share a room: lobby, relayed state, race with results; an 11th is turned away`, async (t) => {
+test(`${N} players share a room: lobby, relayed state, race with results; the next one is turned away`, async (t) => {
   const srv = startServer({ port: 0, host: "127.0.0.1", log: () => {} });
   const url = `ws://127.0.0.1:${await srv.ready}/mp`;
   const clients = [];
@@ -69,8 +69,8 @@ test(`${N} players share a room: lobby, relayed state, race with results; an 11t
     assert.equal(room.players.length, N);
   }
 
-  // An 11th player gets "full" and is disconnected with code 4000.
-  const extra = client(url, "P11", "big");
+  // One more player than the room holds gets "full" and is disconnected with code 4000.
+  const extra = client(url, "P" + (N + 1), "big");
   clients.push(extra);
   const full = await extra.next((m) => m.t === "full");
   assert.equal(full.max, N);
@@ -103,9 +103,9 @@ test(`${N} players share a room: lobby, relayed state, race with results; an 11t
   assert.equal(over.results.length, N);
   assert.deepEqual(
     over.results.map((r) => r.place),
-    [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    Array.from({ length: N }, (_, i) => i + 1),
   );
-  assert.equal(over.results[0].name, "P10", "fastest time wins");
+  assert.equal(over.results[0].name, "P" + N, "fastest time wins");
 });
 
 test("a client sending an oversized or broken message doesn't bring the server down", async (t) => {

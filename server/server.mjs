@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 // Multiplayer server: serves the game's static files and relays player state between
-// the members of a room over WebSocket (path /mp). Rooms hold up to MAX_PLAYERS (10) players,
+// the members of a room over WebSocket (path /mp). Rooms hold up to MAX_PLAYERS (15) players,
 // are created on first join and disappear when the last player leaves.
 //
 //   node server/server.mjs            PORT (default 8080), HOST (default all interfaces)

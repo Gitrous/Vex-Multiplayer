@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// A full room (10 players) as seen by one real browser: the other nine are lightweight
+// A full room (MAX_PLAYERS) as seen by one real browser: the others are lightweight
 // WebSocket clients that join, press PLAY and send standing/running snapshots spread
 // around the hub's spawn point. Checks that the game draws nine ghosts with distinct
 // colours, that the room panel lists all ten, and that it stays error-free.
@@ -69,7 +69,7 @@ try {
     await new Promise((r) => setTimeout(r, 500));
   });
 
-  await step("the browser player joins as the 10th and reaches the hub with everybody", async () => {
+  await step(`the browser player joins as the ${N}th and reaches the hub with everybody`, async () => {
     const context = await browser.newContext({ viewport: { width: 1280, height: 720 } });
     page = await context.newPage();
     await preparePage(page, report);

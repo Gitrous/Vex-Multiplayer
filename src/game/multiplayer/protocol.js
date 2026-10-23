@@ -43,7 +43,7 @@
 //                    nearest menu block, x as a fraction of its width, y relative to its top
 "use strict";
 
-var MAX_PLAYERS = 10;
+var MAX_PLAYERS = 15;
 
 exports.MAX_PLAYERS = MAX_PLAYERS;
 exports.PATH = "/mp";
@@ -53,9 +53,10 @@ exports.MAX_MESSAGE_BYTES = 2048;
 exports.CLOSE_ROOM_FULL = 4000;
 
 // One colour per slot (0..MAX_PLAYERS-1), all readable on the game's white background: red, blue, green,
-// yellow, purple, orange, cyan, pink, lime, brown.
+// yellow, purple, orange, cyan, pink, lime, brown, then indigo, dark teal, maroon, slate and dark gold.
 exports.PLAYER_COLORS = [
-  0xff4d4d, 0x3d9bff, 0x2fd67b, 0xffc233, 0xb15cff, 0xff8a1f, 0x14c8d4, 0xff5cc6, 0x9bd12a, 0xa9744f,
+  0xff4d4d, 0x3d9bff, 0x2fd67b, 0xffc233, 0xb15cff, 0xff8a1f, 0x14c8d4, 0xff5cc6, 0x9bd12a, 0xa9744f, 0x3d3dcc,
+  0x0b7a6b, 0x8b1e3f, 0x6b7785, 0x9a6f00,
 ];
 
 exports.SNAPSHOT_KEYS = [

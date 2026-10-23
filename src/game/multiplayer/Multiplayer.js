@@ -31,7 +31,7 @@ function isSharedLevel(level) {
   return level.replace(/:h$/, "") !== system_1.BalanceData.towerID;
 }
 
-// With many players close together (up to 10 per room) the name labels would overlap:
+// With many players close together (up to protocol.MAX_PLAYERS per room) the name labels would overlap:
 // lift each label above any earlier one it would cover.
 function stackLabels(labels) {
   labels.sort((a, b) => a.x - b.x || b.y - a.y);

@@ -25,7 +25,7 @@ const PanelLevelComplete = 6;
 const LONG = { timeout: 180000, polling: 250 };
 requireBuild();
 
-// Rooms take 10 players; a limit of 4 lets four browsers check the "room full" path.
+// Rooms take MAX_PLAYERS players; a limit of 4 lets four browsers check the "room full" path.
 const server = startServer({ port: 0, host: "127.0.0.1", log: () => {}, maxPlayers: PLAYERS });
 const base = `http://127.0.0.1:${await server.ready}`;
 const room = "test-" + Math.random().toString(36).slice(2, 7);

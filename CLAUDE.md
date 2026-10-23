@@ -2,7 +2,7 @@
 
 Vex 7 (HTML5, Phaser 3.55.2, originally TypeScript, published by Azerion) recovered from its
 shipped single-file build into an editable source tree. The goal of the project is to add
-multiplayer for up to 10 players per room. Players in a room see each other live, start from the main
+multiplayer for up to 15 players per room. Players in a room see each other live, start from the main
 menu together and race through acts, and can turn on collisions to push each other and stand on each
 other's heads. See "Multiplayer" below.
 
@@ -18,11 +18,11 @@ npm test               # headless smoke test of dist/vex7.js (build first)
 npm run test:mp        # 4 headless players (room limit 4 here): lobby, hub, race, spectating, results;
                        # a 5th rejected (~10 min)
 npm run test:collisions # 2 headless players: pass through, tick "Colisiones", push, stand on/ride a head (~2 min)
-npm run test:crowd     # 1 browser + 9 bot clients: a full room of 10 drawn in the hub (~1 min)
+npm run test:crowd     # 1 browser + bot clients: a full room (MAX_PLAYERS, 15) drawn in the hub (~1 min)
 npm run test:chat      # 2-3 headless players: type with Enter without moving, log + bubble, history (~2 min)
 npm run test:stacking  # 1 browser + 1 bot placed at will: collision edge cases (sinking ghost, soft landing on a
                        # head, teleporting ghost, walking out from under), a bot's air gust, R in a race (~2 min)
-npm run test:server    # room flow unit tests + the real server with 10 WebSocket clients, seconds
+npm run test:server    # room flow unit tests + the real server with MAX_PLAYERS WebSocket clients, seconds
 npm run test:original  # same test against reference/vex7.min.js
 npm run format         # prettier (printWidth 120) over src/game and tools
 ```
@@ -68,7 +68,7 @@ software-rendered and slow, so a run takes about a minute. After changing `src/g
 - `server/server.mjs`: the multiplayer server. It serves the static files (an allowlist: `index.html`,
   `version.js`, `assets/`, `dist/`, `patch/`, `reference/`, `src/`) and the WebSocket at `/mp`.
   `server/room.mjs` is one room's game flow (lobby, races), unit-tested in `server/room.test.mjs`;
-  `server/server.test.mjs` runs the real server with 10 WebSocket clients, and checks that a bad or oversized
+  `server/server.test.mjs` runs the real server with MAX_PLAYERS WebSocket clients, and checks that a bad or oversized
   message only drops that client (every socket has an `error` listener; message handling is wrapped in try/catch).
 - `src/game/multiplayer/`: the multiplayer client. `protocol.js` is shared with the server.
 - `tools/`: `build.mjs`, `smoke-test.mjs`, `multiplayer-test.mjs`, `split-bundle.mjs`, and `lib/harness.mjs` for the
@@ -154,8 +154,8 @@ frame-rate-dependent physics a non-issue, at the cost of no shared world: player
 collisions (optional) are resolved by each client for its own player.
 
 - **Server** (`server/server.mjs`, `server/room.mjs`): rooms by code, created on first join, removed when
-  empty, at most `MAX_PLAYERS` (10; `startServer({maxPlayers})` overrides it, the 4-browser test uses 4). A client sends `hello {room, name}` and gets `welcome {id, slot, players}`
-  or `full` (the socket is then closed with code 4000). The slot (0-9) picks the player's colour (`PLAYER_COLORS`, ten). Snapshots
+  empty, at most `MAX_PLAYERS` (15; `startServer({maxPlayers})` overrides it, the 4-browser test uses 4). A client sends `hello {room, name}` and gets `welcome {id, slot, players}`
+  or `full` (the socket is then closed with code 4000). The slot (0-14) picks the player's colour (`PLAYER_COLORS`, fifteen). Snapshots
   are filtered to `SNAPSHOT_KEYS`, rate-limited and relayed to the rest of the room. The last one is kept for
   newcomers. After every flow change the room broadcasts `room {phase, players: [{id, ready, loc}], race}`.
   All messages are listed in `src/game/multiplayer/protocol.js`.

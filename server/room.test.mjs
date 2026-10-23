@@ -23,21 +23,23 @@ function setup(n) {
   return { room, players, got, clear, fireTimers };
 }
 
-test("rooms hold 10 players with distinct slots and colours; a smaller limit can be set", () => {
-  const { room, players } = setup(10);
+const MAX = protocol.MAX_PLAYERS;
+
+test(`rooms hold ${MAX} players with distinct slots and colours; a smaller limit can be set`, () => {
+  const { room, players } = setup(MAX);
   assert.deepEqual(
     players.map((p) => p.slot),
-    [0, 1, 2, 3, 4, 5, 6, 7, 8, 9],
+    Array.from({ length: MAX }, (_, i) => i),
   );
   assert.equal(room.full, true);
-  assert.equal(new Set(protocol.PLAYER_COLORS).size, 10);
+  assert.equal(new Set(protocol.PLAYER_COLORS).size, MAX);
   const small = new Room("s", { send: () => {}, maxPlayers: 4 });
   for (let i = 1; i <= 4; i++) small.add(i, null, "P" + i);
   assert.equal(small.full, true);
 });
 
 test("a slot freed by a leaving player is reused", () => {
-  const { room, players } = setup(10);
+  const { room, players } = setup(MAX);
   room.remove(players[3]);
   assert.equal(room.full, false);
   assert.equal(room.add(99, null, "new").slot, 3);
