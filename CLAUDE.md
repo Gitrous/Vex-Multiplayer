@@ -6,6 +6,9 @@ multiplayer for up to 15 players per room. Players in a room see each other live
 menu together and race through acts, and can turn on collisions to push each other and stand on each
 other's heads. See "Multiplayer" below.
 
+`CODEMAP.md` is an index of where everything lives (task → file, methods per file, multiplayer hooks). Read it first,
+then open only the files it points to. Update it when you add, move or rename files or main methods.
+
 ## Commands
 
 ```bash
